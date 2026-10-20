@@ -192,6 +192,8 @@ CREATE TABLE cita (
     id_dentista INT NOT NULL REFERENCES app_user(id_user) ON DELETE RESTRICT ON UPDATE CASCADE,
     id_estado_cita INT NOT NULL REFERENCES cat_estado_cita(id_estado_cita) ON DELETE RESTRICT ON UPDATE CASCADE,
     fecha_hora_inicio TIMESTAMPTZ NOT NULL,
+    -- El fin del bloque se deriva en la consulta de agenda; no se almacena para
+    -- que no pueda desincronizarse de inicio + duracion.
     duracion_minutos INT NOT NULL CHECK (duracion_minutos > 0),
     motivo VARCHAR(200),
     notas TEXT,
