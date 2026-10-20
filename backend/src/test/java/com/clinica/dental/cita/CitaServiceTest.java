@@ -5,6 +5,7 @@ import com.clinica.dental.cita.dto.CitaResponse;
 import com.clinica.dental.cita.dto.ReprogramarRequest;
 import com.clinica.dental.paciente.Paciente;
 import com.clinica.dental.paciente.PacienteRepository;
+import com.clinica.dental.recordatorio.RecordatorioService;
 import com.clinica.dental.seguridad.SystemUser;
 import com.clinica.dental.seguridad.SystemUserRepository;
 import com.clinica.dental.shared.ClinicaBusinessException;
@@ -45,6 +46,7 @@ class CitaServiceTest {
     @Mock private PacienteRepository pacientes;
     @Mock private TratamientoRepository tratamientos;
     @Mock private SystemUserRepository usuarios;
+    @Mock private RecordatorioService recordatorios;
 
     @InjectMocks private CitaService service;
 
@@ -267,5 +269,76 @@ class CitaServiceTest {
 
         assertThat(agenda).hasSize(1);
         assertThat(agenda.get(0).id()).isEqualTo(40);
+    }
+
+    @Test
+    void crearProgramaElRecordatorioDeLaCitaAgendada() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> {
+            Cita c = inv.getArgument(0);
+            c.setId(50);
+            return c;
+        });
+
+        service.crear(new CitaRequest(1, 2, 3, enDosDias(), null));
+
+        ArgumentCaptor<Cita> agendadas = ArgumentCaptor.forClass(Cita.class);
+        verify(recordatorios).programarPara(agendadas.capture());
+        assertThat(agendadas.getValue().getId()).isEqualTo(50);
+        assertThat(agendadas.getValue().getEstado().getCode()).isEqualTo(EstadoCita.PROGRAMADA);
+    }
+
+    @Test
+    void crearConSolapamientoNoProgramaRecordatorios() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(1L);
+
+        catchThrowableOfType(() -> service.crear(new CitaRequest(1, 2, 3, enDosDias(), null)),
+            ClinicaBusinessException.class);
+
+        verify(recordatorios, never()).programarPara(any(Cita.class));
+    }
+
+    @Test
+    void cancelarCancelaLosRecordatoriosPendientesDeLaCita() {
+        Cita c = cita(30, EstadoCita.CONFIRMADA, enDosDias());
+        when(citas.findById(30)).thenReturn(Optional.of(c));
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.cancelar(30);
+
+        verify(recordatorios).cancelarPendientes(30);
+    }
+
+    @Test
+    void cancelarUnaCitaYaCanceladaNoVuelveATocarLosRecordatorios() {
+        when(citas.findById(31)).thenReturn(Optional.of(cita(31, EstadoCita.CANCELADA, enDosDias())));
+
+        service.cancelar(31);
+
+        verify(recordatorios, never()).cancelarPendientes(any());
+    }
+
+    @Test
+    void reprogramarCancelaElRecordatorioDeLaOriginalYProgramaElDeLaNueva() {
+        Cita original = cita(20, EstadoCita.PROGRAMADA, enDosDias());
+        when(citas.findById(20)).thenReturn(Optional.of(original));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OffsetDateTime nuevaFecha = enDosDias().plusDays(3);
+        service.reprogramar(20, new ReprogramarRequest(nuevaFecha, null));
+
+        verify(recordatorios).cancelarPendientes(20);
+
+        ArgumentCaptor<Cita> agendadas = ArgumentCaptor.forClass(Cita.class);
+        verify(recordatorios).programarPara(agendadas.capture());
+        assertThat(agendadas.getValue().getCitaOrigen()).isSameAs(original);
+        assertThat(agendadas.getValue().getFechaHoraInicio()).isEqualTo(nuevaFecha);
     }
 }
