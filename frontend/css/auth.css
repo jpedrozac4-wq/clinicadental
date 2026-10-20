@@ -1,12 +1,12 @@
 /* ============================================================================
-   COMPUERTA DE LOGIN DEL PORTAL ERP
+   COMPUERTA DE LOGIN DEL SISTEMA CLÍNICO
    ============================================================================ */
 .auth-page {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 100%);
+    background: radial-gradient(circle at 50% 10%, #12414f 0%, #0b2b36 100%);
     padding: 1.5rem;
 }
 
@@ -15,7 +15,7 @@
     border-radius: 1rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
     width: 100%;
-    max-width: 460px;
+    max-width: 470px;
     padding: 2.25rem 2rem;
     position: relative;
     overflow: hidden;
@@ -28,25 +28,38 @@
     left: 0;
     right: 0;
     height: 5px;
-    background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 50%, #059669 100%);
+    background: linear-gradient(90deg, #0e7490 0%, #0891b2 50%, #059669 100%);
 }
 
 .auth-brand {
     display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.6rem;
     margin-bottom: 1.25rem;
 }
 
-.auth-logo {
+.auth-logo-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: var(--radius-md);
+    background: var(--primary-light);
+    color: var(--primary);
     font-size: 1.1rem;
+    line-height: 1;
+}
+
+.auth-logo {
+    font-size: 1.05rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    color: #1e3a8a;
+    letter-spacing: 0.05em;
+    color: var(--primary-hover);
 }
 
 .auth-logo-sub {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: #94a3b8;
@@ -110,9 +123,9 @@
 }
 
 .auth-demo-btn:hover {
-    background: #eff6ff;
-    color: #1e3a8a;
-    border-color: #93c5fd;
+    background: var(--primary-light);
+    color: var(--primary-hover);
+    border-color: #a5f3fc;
 }
 
 .auth-demo-hint {
@@ -129,15 +142,11 @@
     font-size: 0.72rem;
 }
 
-.auth-back-link {
+.auth-footnote {
     display: block;
     text-align: center;
     margin-top: 1.5rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #64748b;
-}
-
-.auth-back-link:hover {
-    color: #1e3a8a;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    line-height: 1.5;
 }

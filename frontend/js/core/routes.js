@@ -1,5 +1,5 @@
 /* ============================================================================
-   REGISTRO DE RUTAS DEL PORTAL ERP
+   REGISTRO DE RUTAS DEL SISTEMA CLINICO
    ----------------------------------------------------------------------------
    Cada ruta declara su etiqueta, su grupo en el sidebar, los roles o permisos
    que la habilitan y la vista que monta. Las vistas se cargan con import()
@@ -7,82 +7,111 @@
 
    Contrato de vista: la clase exportada recibe ({ route, params, navigate }) y
    expone mount(container) y, opcionalmente, unmount().
+
+   Convenciones:
+   - `roles` / `permissions`: basta cumplir una de las dos listas para ver la
+     ruta. Sin restricciones, la ruta queda disponible para toda sesion.
+   - `hidden: true`: la ruta se navega pero no ocupa un item del sidebar.
    ============================================================================ */
+import { CONFIG } from "../config.js";
+
+const { PERMISSIONS } = CONFIG;
 
 export const ROUTES = [
     {
         id: "dashboard",
         path: "/dashboard",
-        label: "Dirección / Gerencia",
-        group: "Dirección",
+        label: "Panel general",
+        group: "General",
         icon: "◈",
-        roles: ["ROLE_GERENTE_GENERAL", "ROLE_GERENTE_FINANCIERO", "ROLE_GERENTE_VENTAS"],
-        permissions: ["KARDEX_AUDITAR", "CONCILIACION_PASARELA_VER"],
-        loader: () => import("../modules/gerencia-module.js"),
-        exportName: "GerenciaView"
+        roles: [],
+        permissions: [],
+        loader: () => import("../modules/dashboard-module.js"),
+        exportName: "DashboardView"
     },
     {
-        id: "catalogo",
-        path: "/catalogo",
-        label: "Catálogo maestro",
-        group: "Administración",
-        icon: "◆",
-        permissions: ["CATALOGO_CREAR_EDITAR"],
-        loader: () => import("../modules/admin-catalogo-module.js"),
-        exportName: "CatalogoAdminView"
-    },
-    {
-        id: "pos",
-        path: "/pos",
-        label: "Punto de venta",
-        group: "Comercial",
-        icon: "▤",
-        roles: ["ROLE_CAJERO", "ROLE_GERENTE_VENTAS"],
-        permissions: ["POS_VENTA_COBRAR", "POS_CAJA_APERTURA_CIERRE", "DEVOLUCION_PROCESAR"],
-        loader: () => import("../modules/pos-module.js"),
-        exportName: "PosView"
-    },
-    {
-        id: "inventario",
-        path: "/inventario",
-        label: "Inventario y kardex",
-        group: "Operaciones",
-        icon: "▦",
-        roles: ["ROLE_ENCARGADO_ALMACEN", "ROLE_AUXILIAR_ALMACEN"],
-        permissions: ["STOCK_CONSULTAR", "KARDEX_AUDITAR"],
-        loader: () => import("../modules/inventario-module.js"),
-        exportName: "InventarioView"
-    },
-    {
-        id: "logistica",
-        path: "/logistica",
-        label: "Logística y despachos",
-        group: "Operaciones",
-        icon: "⇄",
-        roles: ["ROLE_ENCARGADO_ALMACEN", "ROLE_AUXILIAR_ALMACEN"],
-        permissions: ["PICKING_PACKING_BODEGA", "DESPACHO_ASIGNAR_RUTA", "DESPACHO_CONFIRMAR_OTP"],
-        loader: () => import("../modules/logistica-module.js"),
-        exportName: "LogisticaView"
-    },
-    {
-        id: "soporte",
-        path: "/soporte",
-        label: "Help desk y reclamaciones",
-        group: "Control de gestión",
+        id: "pacientes",
+        path: "/pacientes",
+        label: "Pacientes",
+        group: "Atención clínica",
         icon: "◎",
-        roles: ["ROLE_SOPORTE", "ROLE_GERENTE_GENERAL"],
-        permissions: ["TICKETS_GESTIONAR_DERIVAR", "TICKETS_SUPERVISAR_ALERTAS"],
-        loader: () => import("../modules/soporte-module.js"),
-        exportName: "SoporteView"
+        permissions: [PERMISSIONS.PACIENTE_VER],
+        loader: () => import("../modules/pacientes-module.js"),
+        exportName: "PacientesView"
+    },
+    {
+        id: "paciente-historial",
+        path: "/pacientes/:id/historial",
+        label: "Historial clínico",
+        group: "Atención clínica",
+        icon: "▤",
+        hidden: true,
+        permissions: [PERMISSIONS.PACIENTE_HISTORIAL_VER],
+        loader: () => import("../modules/paciente-historial-module.js"),
+        exportName: "PacienteHistorialView"
+    },
+    {
+        id: "tratamientos",
+        path: "/tratamientos",
+        label: "Catálogo de tratamientos",
+        group: "Atención clínica",
+        icon: "◇",
+        permissions: [PERMISSIONS.TRATAMIENTO_VER],
+        loader: () => import("../modules/tratamientos-module.js"),
+        exportName: "TratamientosView"
     },
     {
         id: "cuenta",
         path: "/cuenta",
-        label: "Mi cuenta y seguridad",
+        label: "Mi cuenta",
         group: "Mi cuenta",
         icon: "◉",
+        roles: [],
+        permissions: [],
         loader: () => import("../modules/cuenta-module.js"),
         exportName: "CuentaView"
+    }
+];
+
+/**
+ * Rutas reservadas para la entrega de agenda, facturacion y recordatorios.
+ * El backend ya expone estos recursos y SecurityConfig ya declara sus permisos;
+ * falta el modulo del frontend. Cuando exista, se mueve la entrada a ROUTES y el
+ * sidebar la agrupara sola, sin tocar el shell ni el router.
+ */
+export const RUTAS_RESERVADAS = [
+    {
+        id: "agenda",
+        path: "/agenda",
+        label: "Agenda de citas",
+        group: "Atención clínica",
+        icon: "▦",
+        permissions: [PERMISSIONS.CITA_VER],
+        loader: () => import("../modules/agenda-module.js"),
+        exportName: "AgendaView",
+        specs: "S4, S5, S6"
+    },
+    {
+        id: "facturacion",
+        path: "/facturacion",
+        label: "Facturación y pagos",
+        group: "Administración",
+        icon: "▤",
+        permissions: [PERMISSIONS.FACTURA_VER],
+        loader: () => import("../modules/facturacion-module.js"),
+        exportName: "FacturacionView",
+        specs: "S9, S10"
+    },
+    {
+        id: "recordatorios",
+        path: "/recordatorios",
+        label: "Recordatorios",
+        group: "Administración",
+        icon: "◎",
+        permissions: [PERMISSIONS.RECORDATORIO_VER],
+        loader: () => import("../modules/recordatorios-module.js"),
+        exportName: "RecordatoriosView",
+        specs: "S5, S15"
     }
 ];
 

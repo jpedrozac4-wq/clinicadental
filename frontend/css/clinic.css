@@ -1,0 +1,246 @@
+/* ============================================================================
+   ESTILOS DEL DOMINIO CLÍNICO
+   ----------------------------------------------------------------------------
+   Piezas de presentación propias del sistema odontológico: cabeceras de página,
+   tarjetas de indicadores, fichas de detalle, paneles de formulario y bloques de
+   contexto de sesión. Los componentes genéricos (botones, badges, tablas,
+   modales, toasts) viven en components.css.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Cabecera de página
+   ---------------------------------------------------------------------------- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.page-header-text h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.page-header-text p {
+    margin-top: 0.25rem;
+    max-width: 70ch;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ----------------------------------------------------------------------------
+   Tarjetas de indicadores (KPIs)
+   ---------------------------------------------------------------------------- */
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-stat-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.kpi-stat-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.kpi-stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.1;
+}
+
+.kpi-stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.35rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Accesos rápidos del panel general
+   ---------------------------------------------------------------------------- */
+.quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Módulos reservados (agenda, facturación, recordatorios)
+   ---------------------------------------------------------------------------- */
+.pending-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.pending-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.55rem 0.75rem;
+    background: #f8fafc;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.pending-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+/* ----------------------------------------------------------------------------
+   Formularios de alta y edición
+   ---------------------------------------------------------------------------- */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0 1.1rem;
+}
+
+.form-panel {
+    border-top: 3px solid var(--primary);
+    scroll-margin-top: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.field-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+}
+
+.form-group label.is-required::after {
+    content: " *";
+    color: var(--danger);
+    font-weight: 700;
+}
+
+.form-control:disabled {
+    background: #f1f5f9;
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------------------
+   Fichas de detalle
+   ---------------------------------------------------------------------------- */
+.detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.detail-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.6rem 1.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.detail-row dd {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+    text-align: right;
+}
+
+/* ----------------------------------------------------------------------------
+   Chips de permisos y etiquetas
+   ---------------------------------------------------------------------------- */
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.chip {
+    background: var(--primary-light);
+    color: var(--primary-hover);
+    border: 1px solid #a5f3fc;
+    border-radius: var(--radius-full);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-neutral {
+    background-color: #f1f5f9;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+/* ----------------------------------------------------------------------------
+   Contexto de sesión del panel general
+   ---------------------------------------------------------------------------- */
+.session-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.session-summary p {
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------------------
+   Tablas dentro de tarjetas: la última fila no duplica el borde de la tarjeta
+   ---------------------------------------------------------------------------- */
+.card .data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table-scroll + .state-box {
+    border-top: 1px solid var(--border-color);
+}

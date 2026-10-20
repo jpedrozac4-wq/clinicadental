@@ -1,5 +1,5 @@
 /* ============================================================================
-   BOOTSTRAP DEL PORTAL ERP
+   ARRANQUE DEL SISTEMA CLINICO (SPA)
    ----------------------------------------------------------------------------
    Orden de arranque:
    1. Restaurar la sesion guardada y validarla contra /api/auth/me.
@@ -13,8 +13,9 @@ import { NotificationService } from "./services/notification-service.js";
 import { Router } from "./core/router.js";
 import { Shell } from "./core/shell.js";
 import { ROUTES } from "./core/routes.js";
+import { CONFIG } from "./config.js";
 
-const viewContainer = document.querySelector("#erp-view");
+const viewContainer = document.querySelector("#app-view");
 
 const router = new Router({
     container: viewContainer,
@@ -30,6 +31,8 @@ function startPortal() {
 }
 
 async function bootstrap() {
+    document.title = CONFIG.APP_NAME;
+
     setUnauthorizedHandler(() => {
         shell.showLoginGate();
         NotificationService.warning("Tu sesión expiró. Volvé a ingresar.");

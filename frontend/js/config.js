@@ -1,26 +1,24 @@
 /* ============================================================================
-   CONFIGURACION GLOBAL DEL FRONTEND (ENDPOINTS, STORAGE Y CONTRATO API)
+   CONFIGURACION GLOBAL DEL FRONTEND CLINICO (ENDPOINTS, ROLES Y CONTRATO API)
    ----------------------------------------------------------------------------
-   Punto unico de verdad para hablar con el backend Spring Boot. Los modulos
-   nunca escriben rutas literales: siempre pasan por CONFIG.ENDPOINTS o por los
-   helpers con parametros, para que un cambio de API se resuelva en un solo
-   archivo.
+   Punto unico de verdad para hablar con el backend Spring Boot de la clinica.
+   Los modulos nunca escriben rutas literales: siempre pasan por CONFIG.ENDPOINTS
+   o por los helpers con parametros, para que un cambio de API se resuelva en un
+   solo archivo.
    ============================================================================ */
 
 const API = "/api";
 
 export const CONFIG = {
     API_BASE_URL: API,
-    APP_NAME: "Calzado ERP",
-    STOREFRONT_URL: "index.html",
+    APP_NAME: "Clínica Dental",
+    APP_SUBTITLE: "Sistema de gestión odontológica",
     CURRENCY: "USD",
+    LOCALE: "es-ES",
 
     STORAGE_KEYS: {
-        TOKEN: "erp.auth.token",
-        USER: "erp.auth.user",
-        CART: "erp.cart.items",
-        LAST_ROUTE: "erp.shell.lastRoute",
-        PRINT_PREFERENCE: "erp.pos.printPreference"
+        TOKEN: "clinica.auth.token",
+        USER: "clinica.auth.user"
     },
 
     /** Sesion: el token expira a las 8 horas (28800 s) en el backend. */
@@ -35,110 +33,61 @@ export const CONFIG = {
         AUTH_LOGOUT: `${API}/auth/logout`,
         AUTH_ME: `${API}/auth/me`,
 
-        // ---- Catalogo (publico) ----
-        CATALOGO: `${API}/catalogo`,
-        CATALOGO_TIPOS: `${API}/catalogo/tipos`,
-        CATALOGO_MARCAS: `${API}/catalogo/marcas`,
-        CATALOGO_COLORES: `${API}/catalogo/colores`,
-        CATALOGO_TALLAS: `${API}/catalogo/tallas`,
+        // ---- Gestion de pacientes (S1, S2) ----
+        PACIENTES: `${API}/pacientes`,
 
-        // ---- Catalogo (administracion) ----
-        CATALOGO_ADMIN: `${API}/catalogo/admin`,
-        CATALOGO_ADMIN_MODELOS: `${API}/catalogo/admin/modelos`,
-        CATALOGO_ADMIN_SKUS: `${API}/catalogo/admin/skus`,
-        CATALOGO_ADMIN_TALLAS: `${API}/catalogo/admin/tallas`,
+        // ---- Catalogo de tratamientos (S7) ----
+        TRATAMIENTOS: `${API}/tratamientos`,
 
-        // ---- E-commerce B2C ----
-        CHECKOUT_INICIAR: `${API}/checkout/iniciar`,
-        CHECKOUT_PAGAR: `${API}/checkout/pagar`,
-        CHECKOUT_COTIZAR: `${API}/checkout/cotizar`,
-        CHECKOUT_CUPON: `${API}/checkout/cupon/validar`,
-        CHECKOUT_SUCURSALES: `${API}/checkout/sucursales`,
-        CHECKOUT_ALERTA_DEMANDA: `${API}/checkout/alerta-demanda`,
-        CHECKOUT_ORDENES: `${API}/checkout/ordenes`,
-
-        // ---- Tracking (publico) ----
-        TRACKING: `${API}/tracking`,
-        TRACKING_ENTREGAR: `${API}/tracking/entregar`,
-
-        // ---- POS y caja ----
-        POS: `${API}/pos`,
-        POS_SESIONES: `${API}/pos/sesiones`,
-        POS_COBRAR: `${API}/pos/cobrar`,
-        POS_DEVOLUCION: `${API}/pos/devolucion`,
-        POS_CAJAS: `${API}/pos/cajas`,
-
-        // ---- Inventario ----
-        INVENTARIO: `${API}/inventario`,
-        INVENTARIO_STOCK: `${API}/inventario/stock`,
-        INVENTARIO_KARDEX: `${API}/inventario/kardex`,
-        INVENTARIO_BODEGAS: `${API}/inventario/bodegas`,
-        INVENTARIO_ABASTECIMIENTO: `${API}/inventario/abastecimiento`,
-        INVENTARIO_BAJAS: `${API}/inventario/bajas`,
-
-        // ---- Logistica ----
-        LOGISTICA: `${API}/logistica`,
-        LOGISTICA_DESPACHOS: `${API}/logistica/despachos`,
-        LOGISTICA_SLA: `${API}/logistica/sla`,
-
-        // ---- Compras ----
-        COMPRAS: `${API}/compras`,
-        COMPRAS_PROVEEDORES: `${API}/compras/proveedores`,
-        COMPRAS_ORDENES: `${API}/compras/ordenes`,
-        COMPRAS_RECEPCIONES: `${API}/compras/recepciones`,
-        COMPRAS_ACONDICIONAMIENTO: `${API}/compras/acondicionamiento`,
-        COMPRAS_ROP: `${API}/compras/rop`,
-
-        // ---- Facturacion y finanzas ----
-        FACTURACION: `${API}/facturacion`,
-        FACTURACION_FACTURAS: `${API}/facturacion/facturas`,
-        FACTURACION_NOTAS_CREDITO: `${API}/facturacion/notas-credito`,
-        FACTURACION_PAGOS: `${API}/facturacion/pagos`,
-        FACTURACION_CONCILIACION: `${API}/facturacion/conciliacion`,
-        FACTURACION_COMISIONES: `${API}/facturacion/comisiones`,
-
-        // ---- Marketing ----
-        MARKETING: `${API}/marketing`,
-        MARKETING_CUPONES: `${API}/marketing/cupones`,
-        MARKETING_ALERTAS: `${API}/marketing/alertas`,
-
-        // ---- Direccion / Gerencia ----
-        GERENCIA_KPIS: `${API}/gerencia/kpis`,
-        GERENCIA_REPORTES: `${API}/gerencia/reportes`,
-        GERENCIA_RENTABILIDAD: `${API}/gerencia/rentabilidad`,
-        DIRECCION_PRECIOS: `${API}/direccion/precios`,
-
-        // ---- Soporte y control de gestion ----
-        SOPORTE_TICKETS: `${API}/soporte/tickets`,
-        SOPORTE_ESCALAMIENTOS: `${API}/soporte/escalamientos`,
-
-        // ---- RRHH ----
-        RRHH_COMISIONES: `${API}/rrhh/comisiones`,
-
-        // ---- Administracion y auditoria ----
-        ADMIN_USUARIOS: `${API}/administracion/usuarios`,
-        ADMIN_ROLES: `${API}/administracion/roles`,
-        ADMIN_SUCURSALES: `${API}/administracion/sucursales`,
-        ADMIN_BODEGAS: `${API}/administracion/bodegas`,
-        AUDITORIA: `${API}/auditoria`
+        // ---- Reservados: agenda, facturacion y recordatorios ----
+        // El backend ya declara las rutas y permisos de estas areas; los modulos
+        // del frontend llegan en la entrega de agenda/facturacion.
+        CITAS: `${API}/citas`,
+        TRATAMIENTOS_REALIZADOS: `${API}/tratamientos-realizados`,
+        FACTURAS: `${API}/facturas`,
+        RECORDATORIOS: `${API}/recordatorios`
     },
 
-    /** Endpoints que se consumen sin token (storefront). */
-    PUBLIC_ENDPOINTS: [
-        `${API}/auth/login`,
-        `${API}/checkout/iniciar`,
-        `${API}/checkout/pagar`,
-        `${API}/checkout/cotizar`,
-        `${API}/checkout/cupon/validar`,
-        `${API}/checkout/sucursales`,
-        `${API}/checkout/alerta-demanda`
-    ],
+    /**
+     * Roles canonicos emitidos por el backend. El JWT los transporta con prefijo
+     * ROLE_, pero el payload de /api/auth/login los publica sin prefijo; el
+     * servicio de autenticacion normaliza ambos formatos a esta forma.
+     */
+    ROLES: {
+        ADMINISTRADOR: "ROLE_ADMINISTRADOR",
+        DENTISTA: "ROLE_DENTISTA",
+        RECEPCIONISTA: "ROLE_RECEPCIONISTA"
+    },
 
-    /** Estados canonicos reutilizados por varias vistas. */
+    /** Etiquetas legibles por rol, para el shell y las vistas. */
+    ROLE_LABELS: {
+        ROLE_ADMINISTRADOR: "Administrador",
+        ROLE_DENTISTA: "Odontólogo",
+        ROLE_RECEPCIONISTA: "Recepción"
+    },
+
+    /**
+     * Permisos granulares con el nombre completo de la authority del backend
+     * (OP_*). Los matchers de SecurityConfig usan exactamente estos nombres.
+     */
+    PERMISSIONS: {
+        PACIENTE_VER: "OP_PACIENTE_VER",
+        PACIENTE_CREAR: "OP_PACIENTE_CREAR",
+        PACIENTE_EDITAR: "OP_PACIENTE_EDITAR",
+        PACIENTE_ELIMINAR: "OP_PACIENTE_ELIMINAR",
+        PACIENTE_HISTORIAL_VER: "OP_PACIENTE_HISTORIAL_VER",
+        CITA_VER: "OP_CITA_VER",
+        TRATAMIENTO_VER: "OP_TRATAMIENTO_VER",
+        TRATAMIENTO_CREAR: "OP_TRATAMIENTO_CREAR",
+        TRATAMIENTO_EDITAR: "OP_TRATAMIENTO_EDITAR",
+        FACTURA_VER: "OP_FACTURA_VER",
+        RECORDATORIO_VER: "OP_RECORDATORIO_VER"
+    },
+
+    /** Estados canonicos del schema clinico (cat_estado_cita / factura). */
     ESTADOS: {
-        ORDEN: ["PENDIENTE_PAGO", "PAGADA", "PREPARADA", "EN_RUTA", "ENTREGADA", "EXPIRADA", "CANCELADA"],
-        DESPACHO: ["PREPARADO", "CARGADO", "EN_RUTA", "ENTREGADO"],
-        TICKET: ["NUEVO", "EN_ANALISIS", "EN_BODEGA_TRANSPORTE", "RESUELTO", "CERRADO"]
+        CITA: ["PROGRAMADA", "CONFIRMADA", "REPROGRAMADA", "ATENDIDA", "CANCELADA", "NO_ASISTIO"],
+        FACTURA: ["EMITIDA", "PAGO_PARCIAL", "PAGADA", "ANULADA"]
     }
 };
 
@@ -160,4 +109,9 @@ export function apiQuery(base, params = {}) {
     });
     const query = search.toString();
     return query ? `${base}?${query}` : base;
+}
+
+/** Endpoint del historial clinico de un paciente (S3). */
+export function pacienteHistorialUrl(id) {
+    return `${apiUrl(CONFIG.ENDPOINTS.PACIENTES, id)}/historial`;
 }
