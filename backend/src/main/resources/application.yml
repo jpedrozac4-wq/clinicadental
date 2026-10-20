@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: erp-ecommerce-calzado
+  threads:
+    virtual:
+      enabled: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  datasource:
+    url: >-
+      ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:5432/erp_ecommerce_calzado}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgrespassword}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+erp:
+  security:
+    jwt:
+      # Override in production. Must be at least 32 bytes for HS256.
+      secret: ${ERP_JWT_SECRET:erp-calzado-local-development-secret-key-change-me-2025}
+      # 8 hours, aligned with a full back-office shift.
+      expiration-seconds: ${ERP_JWT_EXPIRATION_SECONDS:28800}
+      issuer: erp-ecommerce-calzado
+    cors:
+      allowed-origins: ${ERP_CORS_ALLOWED_ORIGINS:http://localhost,http://localhost:80,http://localhost:8080,http://127.0.0.1,http://127.0.0.1:8080}
+
+logging:
+  level:
+    root: INFO
+    com.empresa.calzado.erp: DEBUG
+    org.springframework.security: INFO

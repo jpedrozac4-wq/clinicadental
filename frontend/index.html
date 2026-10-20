@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Calzado B2C | E-Commerce Oficial</title>
+    <!-- Estilos CSS Modulares Separados -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/ecommerce.css">
+</head>
+<body>
+    <!-- Encabezado Principal de la Tienda -->
+    <header class="app-header">
+        <div class="brand-container">
+            <span class="brand-title">CALZADO TRADICIONAL & DIGITAL</span>
+            <span class="badge badge-success">Stock en Tiempo Real</span>
+        </div>
+        <nav class="header-nav">
+            <a href="#catalogo" class="nav-link active">Catálogo</a>
+            <a href="#tracking" class="nav-link">Rastrear Pedido</a>
+            <button class="btn btn-outline" id="btn-abrir-carrito" type="button">
+                Carrito
+                <span class="badge badge-danger is-hidden" id="carrito-badge">0</span>
+            </button>
+            <a href="portal-erp.html" class="btn btn-outline header-erp-link">
+                Acceso Intranet ERP &rarr;
+            </a>
+        </nav>
+    </header>
+
+    <main class="main-container">
+        <!-- Banner Principal de Catálogo -->
+        <section class="catalog-header" id="catalogo">
+            <h1 class="catalog-title">Colección de Calzado 2025</h1>
+            <p class="catalog-subtitle">15 años de calidad artesanal ahora con tecnología de inventario unificado y checkout seguro.</p>
+        </section>
+
+        <!-- Filtros Facetados Reales (Consultados por CatalogoModule) -->
+        <div class="filter-bar" id="filtros-catalogo">
+            <div class="facet-control">
+                <label class="facet-label" for="filtro-tipo">Tipo</label>
+                <select id="filtro-tipo" class="form-control">
+                    <option value="">Todos los tipos</option>
+                </select>
+            </div>
+            <div class="facet-control">
+                <label class="facet-label" for="filtro-marca">Marca</label>
+                <select id="filtro-marca" class="form-control">
+                    <option value="">Todas las marcas</option>
+                </select>
+            </div>
+            <div class="facet-control">
+                <label class="facet-label" for="filtro-genero">Género</label>
+                <select id="filtro-genero" class="form-control">
+                    <option value="">Todos los géneros</option>
+                    <option value="HOMBRE">Hombre</option>
+                    <option value="MUJER">Mujer</option>
+                    <option value="UNISEX">Unisex</option>
+                    <option value="NINO">Niño</option>
+                </select>
+            </div>
+            <label class="facet-control facet-check" for="filtro-outlet">
+                <input type="checkbox" id="filtro-outlet">
+                Zona Outlet
+            </label>
+            <button class="filter-btn" id="btn-limpiar-filtros" type="button">Limpiar</button>
+        </div>
+
+        <!-- Vista de Detalle de Producto (Renderizada por ProductoDetalleModule) -->
+        <section class="card is-hidden" id="producto-detalle" aria-live="polite"></section>
+
+        <!-- Contenedor Dinámico del Catálogo de Productos (Renderizado por CatalogoModule) -->
+        <div class="product-grid" id="catalogo-grid">
+            <!-- Los productos se inyectan dinámicamente desde js/modules/catalogo-module.js -->
+        </div>
+
+        <!-- Sección de Rastreo de Envíos y Validación OTP -->
+        <section class="card tracking-section" id="tracking">
+            <div class="card-header">
+                <h2>Rastreo de Pedidos &amp; Validación de Entrega OTP</h2>
+                <span class="badge badge-primary">SLA Máximo 5 Días</span>
+            </div>
+            <div class="tracking-form">
+                <div class="form-group">
+                    <label for="tracking-input">Número de Guía de Tracking:</label>
+                    <input type="text" id="tracking-input" class="form-control" placeholder="Ej: TRK-XXXXXXXX">
+                </div>
+                <button class="btn btn-primary" id="btn-consultar-tracking" type="button">Consultar Estado de Envío</button>
+            </div>
+
+            <!-- Panel de Hitos de Entrega (se completa con el estado real del backend) -->
+            <div id="tracking-resultado" class="tracking-result is-hidden">
+                <div id="tracking-steps" class="tracking-steps"></div>
+                <div id="tracking-detalle"></div>
+
+                <div class="card tracking-otp-card">
+                    <h3>Validación de Entrega en Domicilio por Transportista</h3>
+                    <p class="text-muted text-sm">
+                        El comprador debe dictar el código secreto OTP obtenido en su factura para validar la recepción física.
+                    </p>
+                    <div class="tracking-otp-form">
+                        <input type="text" id="otp-input" class="form-control tracking-otp-input" placeholder="Ingrese Código OTP (6 dígitos)">
+                        <button class="btn btn-success" id="btn-validar-otp" type="button">Confirmar Entrega Física</button>
+                    </div>
+                    <div id="otp-alert" class="alert-box is-hidden"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Consulta pública de una orden (correo + número de orden) -->
+        <section class="card" id="consulta-orden">
+            <div class="card-header">
+                <h2>Consultar una Orden</h2>
+                <span class="badge badge-primary">Requiere correo y número de orden</span>
+            </div>
+            <p class="text-muted text-sm">
+                Ingresá el correo con el que compraste y el número de orden. Por seguridad, ambos datos deben corresponder a la misma compra.
+            </p>
+            <div class="consulta-form">
+                <div class="form-group">
+                    <label for="consulta-email">Correo electrónico:</label>
+                    <input type="email" id="consulta-email" class="form-control" placeholder="tu@correo.com" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="consulta-numero">Número de orden:</label>
+                    <input type="text" id="consulta-numero" class="form-control" placeholder="Ej: ORD-1A2B3C4D">
+                </div>
+                <button class="btn btn-primary" id="btn-consultar-orden" type="button">Consultar orden</button>
+            </div>
+            <div id="consulta-resultado" class="consulta-resultado"></div>
+        </section>
+    </main>
+
+    <!-- Panel de Carrito B2C (Controlado por CarritoModule) -->
+    <div id="modal-carrito" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tu carrito</h3>
+                <button class="close-btn" id="btn-close-carrito" type="button">&times;</button>
+            </div>
+            <div id="carrito-items"></div>
+            <div class="cart-summary">
+                <span class="font-bold">Subtotal</span>
+                <strong id="carrito-subtotal">$0.00 USD</strong>
+            </div>
+            <button class="btn btn-success btn-block" id="btn-continuar-carrito" type="button">Continuar compra</button>
+            <button class="btn btn-outline btn-block cart-secondary-action" id="btn-vaciar-carrito" type="button">Vaciar carrito</button>
+        </div>
+    </div>
+
+    <!-- Modal Modular de Checkout B2C (Controlado por CheckoutModule) -->
+    <div id="modal-checkout" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="checkout-title">Finalizar compra</h3>
+                <button class="close-btn" id="btn-close-checkout" type="button">&times;</button>
+            </div>
+
+            <!-- Los tres pasos los renderiza CheckoutModule con datos reales del backend. -->
+            <div id="checkout-step-1" class="checkout-step"></div>
+            <div id="checkout-step-2" class="checkout-step is-hidden"></div>
+            <div id="checkout-step-3" class="checkout-step is-hidden"></div>
+        </div>
+    </div>
+
+    <!-- Script Modular JavaScript (ES6 Modules) -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

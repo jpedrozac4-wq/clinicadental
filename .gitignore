@@ -1,0 +1,92 @@
+# ============================================================================
+# GITIGNORE - ERP & E-COMMERCE CALZADO
+# ============================================================================
+
+# Maven & Java Build Artifacts
+backend/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDEs and Editors
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# OS Generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Docker Local Data & Logs
+*.log
+pgdata/
+docker_data/
+
+# Environment Variables & Agent State
+.env
+.env.local
+.pi/
+.atl/
+
+# Browser smoke harness artifacts
+tools/artifacts/
+
+# CodeGraph index
+.codegraph/
+
+# ============================================================================
+# NON-PROJECT MATERIAL - KEPT OUT OF THE REPOSITORY
+#
+# The repository holds only the runnable project: backend/, frontend/,
+# docker-compose.yml, nginx.conf, schema.sql, seed_data.sql and tools/.
+# Everything below still lives on disk, untracked, and is ignored so it can
+# never be committed back by accident.
+# ============================================================================
+
+# Academic analysis document and the script that built it
+Analisis_Inicial_Sistema_ERP_Ecommerce.docx
+build_apa_document.py
+
+# Backend scaffolding scripts (generated the entities once; not part of the app)
+add_repositories.py
+build_all_entities.py
+build_controllers.py
+build_erp_controllers.py
+build_remaining_entities.py
+build_repositories_and_services.py
+build_security_config.py
+generate_backend_entities.py
+
+# Data-model artifacts (ERD, drawio, relational model)
+drawio_erd_url.txt
+drawio_url.txt
+generate_native_erd.py
+generate_relational_model.py
+Image14.jpg
+modelo_erd.mermaid
+modelo_relacional_erp_ecommerce.drawio
+modelo_relacional_erp_ecommerce.json
+update_json_model.py
+
+# Course practice material
+PRACTICA 2-2 (1).pdf
+
+# Internal ODD task notes (kept on disk and in Engram, never in the repository)
+odd/

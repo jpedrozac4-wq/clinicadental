@@ -1,0 +1,68 @@
+/* ============================================================================
+   ESTILOS BASE, RESETS Y TIPOGRAFIA
+   ============================================================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+a:hover {
+    color: var(--primary-hover);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: #f1f5f9;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-muted { color: var(--text-muted); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--accent); }
+.font-bold { font-weight: 700; }
+
+/* ----------------------------------------------------------------------------
+   El atributo [hidden] debe ganarle a cualquier display declarado por clase.
+   Sin esto, .auth-page (display:flex) y .badge (display:inline-flex) ignoran
+   hidden y la compuerta de login queda visible debajo del shell.
+   ---------------------------------------------------------------------------- */
+[hidden] {
+    display: none !important;
+}

@@ -1,0 +1,566 @@
+/* ============================================================================
+   ESTILOS ESPECIFICOS DE TIENDA E-COMMERCE B2C
+   ============================================================================ */
+.catalog-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.catalog-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.025em;
+    margin-bottom: 0.5rem;
+}
+
+.catalog-subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* Barra de filtros facetados */
+.filter-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+.filter-btn {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-full);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filter-btn:hover, .filter-btn.active {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+/* Fichas de producto */
+.product-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.product-image-placeholder {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    height: 180px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.product-badge-top {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+}
+
+.product-sku {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    margin-bottom: 0.4rem;
+}
+
+.product-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.product-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.product-pricing {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.product-price-current {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.product-price-original {
+    font-size: 0.95rem;
+    color: #94a3b8;
+    text-decoration: line-through;
+}
+
+/* Selector de Tallas */
+.size-selector {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.size-pill {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ffffff;
+    transition: all var(--transition-fast);
+}
+
+.size-pill:hover, .size-pill.selected {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Grilla del catalogo B2C. Sin esta regla las fichas se apilan a ancho completo.
+   ---------------------------------------------------------------------------- */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    align-items: start;
+    margin-bottom: 2rem;
+}
+
+.product-image-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+}
+
+.product-image-fallback {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0 1rem;
+    text-align: center;
+}
+
+.product-image-fallback span:last-child {
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.75;
+}
+
+/* ----------------------------------------------------------------------------
+   Utilidad de visibilidad. Se usa para el detalle de producto y para ocultar
+   el badge del carrito cuando esta vacio. El !important es necesario porque
+   .product-grid y .filter-bar fijan su propio display.
+   ---------------------------------------------------------------------------- */
+.is-hidden {
+    display: none !important;
+}
+
+/* ----------------------------------------------------------------------------
+   Filtros facetados reales: selectores de tipo, marca y genero + toggle outlet.
+   ---------------------------------------------------------------------------- */
+.facet-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.facet-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.facet-control .form-control {
+    width: auto;
+    min-width: 160px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+}
+
+.facet-check {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+/* ----------------------------------------------------------------------------
+   Detalle de producto: ficha, seleccion de talla y lista de espera.
+   ---------------------------------------------------------------------------- */
+.detail-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.detail-price {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.detail-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+}
+
+.detail-selection {
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.75rem;
+}
+
+.detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.detail-alert {
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.85rem;
+}
+
+.detail-alert-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Pildoras de talla: talla EUR, equivalencia en cm y precio por talla. */
+.size-pill {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    line-height: 1.15;
+}
+
+.size-pill-cm,
+.size-pill-price {
+    font-size: 0.68rem;
+    font-weight: 500;
+    opacity: 0.85;
+}
+
+.size-pill.is-unavailable,
+.size-pill.is-unavailable:hover {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: var(--border-color);
+    cursor: not-allowed;
+    text-decoration: line-through;
+}
+
+/* ----------------------------------------------------------------------------
+   Panel del carrito: lineas, controles de cantidad y subtotal.
+   ---------------------------------------------------------------------------- */
+.cart-item {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.cart-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1 1 60%;
+    min-width: 0;
+}
+
+.cart-item-name {
+    font-weight: 700;
+}
+
+.cart-item-meta,
+.cart-item-unit {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.cart-item-total {
+    font-weight: 700;
+}
+
+.cart-item-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-basis: 100%;
+}
+
+.cart-item-qty {
+    min-width: 1.75rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.cart-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    margin-bottom: 0.5rem;
+    border-top: 2px solid var(--border-color);
+    font-size: 1.1rem;
+}
+
+.cart-secondary-action {
+    margin-top: 0.5rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Enlace al portal ERP dentro del header oscuro. Reemplaza el style inline
+   preexistente del index.html.
+   ---------------------------------------------------------------------------- */
+.header-erp-link {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ----------------------------------------------------------------------------
+   Checkout real: bloques del formulario, lineas del pedido y desglose de
+   importes. Los tres pasos viven dentro del modal y los renderiza el modulo.
+   ---------------------------------------------------------------------------- */
+.checkout-step {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.checkout-block {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
+
+.checkout-block:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.checkout-block h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.checkout-subblock {
+    margin-top: 0.75rem;
+    padding: 0.85rem;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.delivery-choice {
+    display: flex;
+    gap: 0.75rem 1.5rem;
+    flex-wrap: wrap;
+}
+
+.delivery-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.checkout-inline-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.checkout-inline-form .form-group {
+    margin-bottom: 0;
+}
+
+.checkout-grow {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.checkout-envio-info {
+    margin-top: 0.5rem;
+}
+
+.checkout-envio-info p {
+    margin: 0.15rem 0;
+}
+
+.checkout-lineas {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.75rem;
+}
+
+.checkout-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.checkout-line-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.checkout-totales {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.95rem;
+}
+
+.checkout-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+}
+
+.checkout-total-row.is-grand {
+    border-top: 1px solid var(--border-color);
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+    font-size: 1.15rem;
+}
+
+.checkout-note {
+    margin-top: 0.4rem;
+}
+
+.checkout-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.checkout-pdf-link {
+    text-align: center;
+}
+
+/* ----------------------------------------------------------------------------
+   Rastreo publico: formulario, hitos dinamicos y validacion OTP.
+   ---------------------------------------------------------------------------- */
+.tracking-section {
+    margin-top: 3rem;
+}
+
+.tracking-form {
+    max-width: 540px;
+}
+
+.tracking-result {
+    margin-top: 1.5rem;
+}
+
+.tracking-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tracking-step {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+}
+
+.tracking-step.is-reached {
+    border-color: var(--accent);
+}
+
+.tracking-step-label {
+    font-weight: 700;
+    margin-top: 0.25rem;
+}
+
+.tracking-otp-card {
+    background-color: var(--bg-page);
+}
+
+.tracking-otp-form {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+}
+
+.tracking-otp-input {
+    max-width: 240px;
+}
+
+/* ----------------------------------------------------------------------------
+   Consulta publica de una orden.
+   ---------------------------------------------------------------------------- */
+.consulta-form {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.consulta-form .form-group {
+    margin-bottom: 0;
+    flex: 1 1 220px;
+    min-width: 200px;
+}
+
+.consulta-resultado {
+    margin-top: 1.5rem;
+}

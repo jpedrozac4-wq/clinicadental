@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Intranet ERP | Calzado</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/erp.css">
+</head>
+<body class="erp-body">
+
+    <!-- ====================================================================
+         COMPUERTA DE LOGIN: unica puerta de entrada al back office
+         ==================================================================== -->
+    <div id="login-gate" class="auth-page" hidden>
+        <div class="auth-card">
+            <div class="auth-brand">
+                <span class="auth-logo">CALZADO</span>
+                <span class="auth-logo-sub">ERP · E-COMMERCE</span>
+            </div>
+
+            <h1 class="auth-title">Portal de gestión</h1>
+            <p class="auth-subtitle">
+                Acceso restringido por rol. El menú y los endpoints se habilitan según
+                los permisos del perfil autenticado.
+            </p>
+
+            <form id="login-form" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="login-username">Usuario</label>
+                    <input type="text" id="login-username" class="form-control"
+                           autocomplete="username" placeholder="ej: gerentegeneral" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" class="form-control"
+                           autocomplete="current-password" placeholder="••••••••" required>
+                </div>
+
+                <div id="login-error" class="alert-box danger" hidden></div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="btn-erp-login">
+                    Ingresar al ERP
+                </button>
+            </form>
+
+            <div class="auth-demo">
+                <p class="auth-demo-title">Perfiles de demostración</p>
+                <div id="login-demo-profiles" class="auth-demo-grid">
+                    <button type="button" class="auth-demo-btn" data-demo-user="gerentegeneral">
+                        Gerente General
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="gerenteventas">
+                        Gerente de Ventas
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="jefealmacen">
+                        Jefe de Almacén
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="cajero1">
+                        Cajero POS
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="soporte1">
+                        Soporte
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="contador1">
+                        Contador
+                    </button>
+                    <button type="button" class="auth-demo-btn" data-demo-user="admin">
+                        Administrador
+                    </button>
+                </div>
+                <p class="auth-demo-hint">
+                    Seleccionar un perfil completa el formulario. Contraseña de semilla: <code>Password123!</code>
+                </p>
+            </div>
+
+            <a class="auth-back-link" href="index.html">&larr; Ir a la tienda online</a>
+        </div>
+    </div>
+
+    <!-- ====================================================================
+         SHELL DEL PORTAL: cabecera + sidebar por permisos + vista activa
+         ==================================================================== -->
+    <div id="erp-shell" hidden>
+        <header class="app-header">
+            <div class="brand-container">
+                <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Mostrar menú">☰</button>
+                <span class="brand-title">PORTAL INTRANET ERP</span>
+            </div>
+
+            <div class="header-nav">
+                <div class="header-user">
+                    <span class="header-user-name" id="current-user-name">—</span>
+                    <span class="header-user-role" id="current-user-role">—</span>
+                </div>
+                <a href="index.html" class="nav-link">Tienda online</a>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-logout">Salir</button>
+            </div>
+        </header>
+
+        <div class="erp-layout">
+            <aside class="erp-sidebar" id="erp-sidebar">
+                <div class="sidebar-header">MÓDULOS HABILITADOS</div>
+                <nav id="sidebar-menu" class="sidebar-menu"></nav>
+            </aside>
+
+            <main class="erp-main" id="erp-view"></main>
+        </div>
+    </div>
+
+    <script type="module" src="js/erp-app.js"></script>
+</body>
+</html>
