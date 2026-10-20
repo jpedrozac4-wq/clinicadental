@@ -10,10 +10,10 @@ services:
   # --------------------------------------------------------------------------
   database:
     image: postgres:16-alpine
-    container_name: erp-calzado-postgres
+    container_name: clinica-dental-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: erp_ecommerce_calzado
+      POSTGRES_DB: clinica_dental
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -26,7 +26,7 @@ services:
       - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./seed_data.sql:/docker-entrypoint-initdb.d/02_seed_data.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d erp_ecommerce_calzado"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clinica_dental"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,20 +40,20 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: erp-calzado-backend
+    container_name: clinica-dental-backend
     restart: unless-stopped
     depends_on:
       database:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: >-
-        jdbc:postgresql://database:5432/erp_ecommerce_calzado
+        jdbc:postgresql://database:5432/clinica_dental
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgrespassword
       SPRING_JPA_HIBERNATE_DDL_AUTO: "none"
       SERVER_PORT: 8080
-      ERP_JWT_SECRET: ${ERP_JWT_SECRET:-erp-calzado-dev-secret-key-32bytes}
-      ERP_JWT_EXPIRATION_SECONDS: ${ERP_JWT_EXPIRATION_SECONDS:-28800}
+      CLINICA_JWT_SECRET: ${CLINICA_JWT_SECRET:-clinica-dental-dev-secret-key-32bytes}
+      CLINICA_JWT_EXPIRATION_SECONDS: ${CLINICA_JWT_EXPIRATION_SECONDS:-28800}
     ports:
       - "8085:8080"
     volumes:
@@ -70,7 +70,7 @@ services:
   # --------------------------------------------------------------------------
   frontend:
     image: nginx:alpine
-    container_name: erp-calzado-web
+    container_name: clinica-dental-web
     restart: unless-stopped
     depends_on:
       - backend

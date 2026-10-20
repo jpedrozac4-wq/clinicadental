@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.empresa.calzado</groupId>
-    <artifactId>erp-ecommerce</artifactId>
+    <groupId>com.clinica</groupId>
+    <artifactId>clinica-dental</artifactId>
     <version>1.0.0</version>
-    <name>erp-ecommerce</name>
-    <description>Sistema Integral ERP y Plataforma E-commerce B2C - Calzado</description>
+    <name>clinica-dental</name>
+    <description>Sistema de gestion para consultorio dental</description>
 
     <properties>
         <java.version>21</java.version>
