@@ -1,0 +1,244 @@
+@startuml 02-clases
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  ArrowColor #333333
+  FontColor #1F2933
+  AttributeFontColor #1F2933
+  StereotypeFontColor #4B5563
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+hide circle
+hide empty members
+
+package "Gestión de pacientes" {
+  class Paciente {
+    - id : Integer
+    - nombres : String
+    - apellidos : String
+    - fechaNacimiento : LocalDate
+    - telefono : String
+    - direccion : String
+    - email : String
+    - active : Boolean
+    - createdAt : OffsetDateTime
+    - updatedAt : OffsetDateTime
+  }
+}
+
+package "Catálogo de tratamientos" {
+  class Tratamiento {
+    - id : Integer
+    - codigo : String
+    - nombre : String
+    - descripcion : String
+    - precio : BigDecimal
+    - duracionMinutos : Integer
+    - active : Boolean
+    - createdAt : OffsetDateTime
+    - updatedAt : OffsetDateTime
+  }
+}
+
+package "Agenda de citas" {
+  class Cita {
+    - id : Integer
+    - fechaHoraInicio : OffsetDateTime
+    - duracionMinutos : Integer
+    - motivo : String
+    - notas : String
+    - createdAt : OffsetDateTime
+    - updatedAt : OffsetDateTime
+  }
+
+  class EstadoCita {
+    - id : Integer
+    - code : String
+    - description : String
+    - active : Boolean
+  }
+}
+
+package "Tratamientos realizados" {
+  class TratamientoRealizado {
+    - id : Integer
+    - fechaRealizacion : OffsetDateTime
+    - detalleProcedimiento : String
+    - observaciones : String
+    - costo : BigDecimal
+    - createdAt : OffsetDateTime
+    - updatedAt : OffsetDateTime
+  }
+}
+
+package "Facturación" {
+  class Factura {
+    - id : Integer
+    - numero : String
+    - fechaEmision : OffsetDateTime
+    - total : BigDecimal
+    - saldo : BigDecimal
+    - observaciones : String
+    + getTotalPagado() : BigDecimal
+  }
+
+  class FacturaDetalle {
+    - id : Integer
+    - descripcion : String
+    - monto : BigDecimal
+  }
+
+  class EstadoFactura {
+    - id : Integer
+    - code : String
+    - description : String
+    - active : Boolean
+  }
+}
+
+package "Pagos" {
+  class Pago {
+    - id : Integer
+    - fechaPago : OffsetDateTime
+    - monto : BigDecimal
+    - referencia : String
+    - createdAt : OffsetDateTime
+  }
+
+  class MetodoPago {
+    - id : Integer
+    - code : String
+    - description : String
+    - active : Boolean
+  }
+}
+
+package "Recordatorios de citas" {
+  class NotificacionCita {
+    - id : Integer
+    - destino : String
+    - fechaObjetivo : OffsetDateTime
+    - mensaje : String
+    - enviadoEn : OffsetDateTime
+    - error : String
+    - createdAt : OffsetDateTime
+  }
+
+  class CanalNotificacion {
+    - id : Integer
+    - code : String
+    - description : String
+    - active : Boolean
+  }
+
+  class EstadoNotificacion {
+    - id : Integer
+    - code : String
+    - description : String
+    - active : Boolean
+  }
+}
+
+package "Seguridad y RBAC" {
+  class SystemUser {
+    - id : Integer
+    - username : String
+    - passwordHash : String
+    - hashMethod : String
+    - salt : String
+    - fullName : String
+    - email : String
+    - active : Boolean
+    - failedAttempts : Short
+    - lockedUntil : OffsetDateTime
+    - lastLogin : OffsetDateTime
+  }
+
+  class Role {
+    - id : Integer
+    - roleName : String
+    - description : String
+    - active : Boolean
+  }
+
+  class Permission {
+    - id : Integer
+    - permissionName : String
+    - modulo : String
+    - action : String
+    - description : String
+  }
+}
+
+' ---------- Relaciones tomadas de las anotaciones JPA ----------
+Cita "*" --> "1" Paciente : paciente
+Cita "*" --> "1" Tratamiento : tratamiento
+Cita "*" --> "1" SystemUser : dentista
+Cita "*" --> "1" EstadoCita : estado
+Cita "0..*" --> "0..1" Cita : citaOrigen / reemplaza
+
+TratamientoRealizado "*" --> "1" Paciente : paciente
+TratamientoRealizado "*" --> "1" Tratamiento : tratamiento
+TratamientoRealizado "*" --> "0..1" Cita : cita
+TratamientoRealizado "*" --> "1" SystemUser : dentista
+
+Factura "*" --> "1" Paciente : paciente
+Factura "*" --> "1" EstadoFactura : estado
+Factura "1" --> "1..*" FacturaDetalle : detalle
+FacturaDetalle "0..1" --> "1" TratamientoRealizado : realizado (UNIQUE)
+
+Pago "*" --> "1" Factura : factura
+Pago "*" --> "1" MetodoPago : metodoPago
+
+NotificacionCita "*" --> "1" Cita : cita
+NotificacionCita "*" --> "1" CanalNotificacion : canal
+NotificacionCita "*" --> "1" EstadoNotificacion : estado
+
+SystemUser "*" --> "*" Role : user_role
+Role "*" --> "*" Permission : role_permission
+
+note right of Paciente
+  Baja lógica: active = false (S2).
+  Conserva citas, tratamientos y facturas.
+end note
+
+note bottom of TratamientoRealizado
+  costo se copia del precio vigente
+  del catálogo y queda congelado (S8).
+end note
+
+note right of Factura
+  numero correlativo F-000001 sin huecos;
+  saldo = total - pagos (S9, S10).
+end note
+
+note bottom of FacturaDetalle
+  id_realizado UNIQUE: cada procedimiento
+  se factura una sola vez (S9).
+end note
+
+note bottom of EstadoCita
+  PROGRAMADA, CONFIRMADA, REPROGRAMADA,
+  ATENDIDA, CANCELADA, NO_ASISTIO.
+end note
+
+note bottom of EstadoFactura
+  EMITIDA, PAGO_PARCIAL, PAGADA, ANULADA.
+end note
+
+note bottom of EstadoNotificacion
+  PENDIENTE, ENVIADA, SIMULADA,
+  FALLIDA, CANCELADA.
+end note
+
+@enduml

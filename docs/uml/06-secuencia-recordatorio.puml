@@ -1,0 +1,110 @@
+@startuml 06-secuencia-recordatorio
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #6B7280
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F4F6F8
+  ParticipantFontColor #1F2933
+  GroupBorderColor #6B7280
+  GroupBackgroundColor #F9FAFB
+  DividerBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Disparador\n(programado o manual)" as TRIG
+participant "CitaService" as CSRV
+participant "RecordatorioController" as CTRL
+participant "RecordatorioService" as SRV
+participant "NotificacionCitaRepository" as REPO
+participant "CitaRepository" as CITAS
+participant "EnvioCorreo\n(EnvioCorreoSmtp)" as CORREO
+participant "Servidor SMTP" as SMTP
+database "PostgreSQL\nnotificacion_cita" as DB
+
+== Programación del recordatorio al agendar la cita (S5) ==
+CSRV -> SRV : programarPara(cita)
+alt Cita sin id (no persistida)
+  SRV --> CSRV : no hace nada
+else Cita persistida
+  SRV -> REPO : existsByCitaIdAndEstadoCode(idCita, "PENDIENTE")
+  alt Ya existe un pendiente
+    SRV --> CSRV : no duplica la fila
+  else Sin pendiente
+    SRV -> REPO : save(NotificacionCita)
+    note right of SRV
+      canal = EMAIL
+      destino = paciente.email
+      fechaObjetivo = inicio - 24 h
+      estado = PENDIENTE
+      enviadoEn = null, error = null
+    end note
+    REPO -> DB : INSERT INTO notificacion_cita
+  end
+end
+
+== Cancelación de pendientes al cancelar o reprogramar (S6) ==
+CSRV -> SRV : cancelarPendientes(idCita)
+SRV -> REPO : findByCitaIdAndEstadoCode(idCita, "PENDIENTE")
+loop Cada pendiente de la cita
+  SRV -> SRV : estado = CANCELADA
+  SRV -> REPO : save(notificacion)
+end
+
+== Despacho de recordatorios vencidos (S5, S15) ==
+TRIG -> CTRL : POST /api/recordatorios/procesar
+note right of TRIG
+  El proceso programado invoca el
+  mismo caso de uso; el endpoint
+  permite forzarlo desde la interfaz.
+end note
+CTRL -> SRV : procesar()
+SRV -> REPO : findByEstadoCodeAndFechaObjetivoLessThanEqual\n("PENDIENTE", ahora)
+note right of SRV : ahora proviene de un Clock inyectado
+REPO --> SRV : recordatorios vencidos
+loop Cada recordatorio PENDIENTE
+  SRV -> CORREO : estaConfigurado()
+  alt Sin SMTP configurado
+    SRV -> SRV : estado = SIMULADA\nenviadoEn = ahora\nerror = "SMTP no configurado"
+    note right : Se registra en la bitácora\nen lugar de fallar (S15).
+  else SMTP configurado
+    SRV -> CORREO : enviar(destino, asunto, mensaje)
+    CORREO -> SMTP : conexión y envío SMTP
+    alt Envío exitoso
+      SMTP --> CORREO : OK
+      SRV -> SRV : estado = ENVIADA\nenviadoEn = ahora, error = null
+    else Error de envío
+      SMTP --> CORREO : excepción
+      CORREO --> SRV : RuntimeException
+      SRV -> SRV : estado = FALLIDA\nerror = mensaje (máx. 300)\nenviadoEn = null
+    end
+  end
+  SRV -> REPO : save(notificacion)
+  REPO -> DB : UPDATE notificacion_cita
+end
+SRV --> CTRL : List<RecordatorioResponse>
+CTRL --> TRIG : 200 con la bitácora despachada
+
+== Historial de recordatorios de una cita (S5) ==
+TRIG -> CTRL : GET /api/citas/{id}/recordatorios
+CTRL -> SRV : historial(idCita)
+SRV -> CITAS : existsById(idCita)
+alt Cita inexistente
+  SRV --> CTRL : ClinicaBusinessException (404)
+  CTRL --> TRIG : 404 "Cita no encontrada"
+else Cita existente
+  SRV -> REPO : findByCitaIdOrderByFechaObjetivoDesc(idCita)
+  REPO --> SRV : filas de la bitácora
+  SRV --> CTRL : List<RecordatorioResponse>
+  CTRL --> TRIG : 200 con el historial
+end
+
+@enduml

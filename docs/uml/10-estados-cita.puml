@@ -1,0 +1,59 @@
+@startuml 10-estados-cita
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam state {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+  ArrowColor #333333
+  StartColor #333333
+  EndColor #333333
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+state PROGRAMADA
+state REPROGRAMADA
+state ATENDIDA
+state CANCELADA
+
+[*] --> PROGRAMADA : POST /api/citas\nestado inicial (S4)
+PROGRAMADA --> REPROGRAMADA : PATCH /api/citas/{id}/reprogramar\nla cita reemplazada (S6)
+PROGRAMADA --> ATENDIDA : POST /api/tratamientos-realizados\ncon id_cita (S8)
+PROGRAMADA --> CANCELADA : PATCH /api/citas/{id}/cancelar (S6)
+REPROGRAMADA --> CANCELADA : PATCH /api/citas/{id}/cancelar
+REPROGRAMADA --> ATENDIDA : registrar realizado con id_cita
+CANCELADA --> CANCELADA : cancelar de nuevo\n(idempotente)
+ATENDIDA --> [*]
+CANCELADA --> [*]
+
+note right of REPROGRAMADA
+  La reprogramación no mueve la cita:
+  marca la original como REPROGRAMADA
+  y crea una nueva PROGRAMADA con
+  id_cita_origen apuntando a ella.
+end note
+
+note right of ATENDIDA
+  Único estado bloqueado para
+  reprogramar y cancelar (409).
+end note
+
+note bottom of CANCELADA
+  Al cancelar se cancelan los
+  recordatorios PENDIENTES (S6).
+end note
+
+note left of PROGRAMADA
+  cat_estado_cita también define
+  CONFIRMADA y NO_ASISTIO, pero
+  ninguna operación del backend
+  las asigna (solo se leen).
+end note
+
+@enduml

@@ -1,0 +1,83 @@
+@startuml 13-despliegue
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam node {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #6B7280
+  FontColor #1F2933
+}
+skinparam database {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #6B7280
+  FontColor #1F2933
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Navegador web\ndel usuario" as BROWSER
+
+node "Host con Docker Engine\ndocker compose up" as HOST {
+  node "clinica-dental-web\nnginx:alpine" as WEB {
+    artifact "frontend/\n/usr/share/nginx/html:ro" as STATIC
+    artifact "nginx.conf\n/etc/nginx/conf.d/default.conf:ro" as CONF
+  }
+
+  node "clinica-dental-backend\nbuild ./backend (Java 21)" as APP {
+    artifact "app.jar\nSpring Boot :8080" as JAR
+    artifact "backend_storage\n/app/storage" as STORAGE
+  }
+
+  node "clinica-dental-postgres\npostgres:16-alpine" as PG {
+    database "clinica_dental" as DB
+    artifact "schema.sql\nseed_data.sql" as INIT
+    artifact "postgres_data\n/var/lib/postgresql/data" as PGDATA
+  }
+}
+
+cloud "Servidor SMTP externo\nspring.mail.host" as SMTP
+
+BROWSER --> WEB : HTTP :80 (80:80)
+WEB --> APP : proxy_pass\nhttp://backend:8080/api/
+APP --> PG : JDBC :5432 (5432:5432)
+APP --> SMTP : SMTP
+APP --> STORAGE
+PG --> PGDATA
+INIT ..> DB : docker-entrypoint-initdb.d
+
+note bottom of APP
+  Puerto publicado: 8085:8080
+  Variables: SPRING_DATASOURCE_URL,
+  SPRING_DATASOURCE_USERNAME,
+  SPRING_DATASOURCE_PASSWORD,
+  CLINICA_JWT_SECRET,
+  CLINICA_JWT_EXPIRATION_SECONDS
+end note
+
+note bottom of WEB
+  location ^~ /api/ y /storage/
+  se proxifican al backend;
+  el resto lo sirve la SPA.
+end note
+
+note bottom of HOST
+  Red bridge erp_calzado_net.
+  Volúmenes nombrados:
+  erp_calzado_pgdata y erp_calzado_storage.
+end note
+
+@enduml

@@ -1,0 +1,93 @@
+@startuml 12-componentes
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #6B7280
+  FontColor #1F2933
+}
+skinparam database {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+}
+skinparam cloud {
+  BackgroundColor #FAFAFA
+  BorderColor #6B7280
+  FontColor #1F2933
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Usuario\n(recepción, dentista,\nadministrador)" as USR
+component "Nginx\nreverse proxy :80" as NGX
+component "SPA vainilla\nfrontend/js" as SPA
+
+package "Backend Spring Boot :8080" as BACKEND {
+  component "seguridad\nJWT + RBAC" as SEG
+  component "paciente\nS1, S2" as PAC
+  component "tratamiento\nS7" as TRA
+  component "cita\nS4, S6" as CIT
+  component "realizado\nS8" as REA
+  component "historial\nS3" as HIS
+  component "factura\nS9" as FAC
+  component "pago\nS10" as PAG
+  component "recordatorio\nS5, S15" as REC
+  component "reportes/pdf\nDocumentoPdf" as PDF
+  component "shared\nerrores de dominio" as SHA
+}
+
+database "PostgreSQL 16\nclinica_dental" as DB
+cloud "Servidor SMTP\nspring.mail.host" as SMTP
+
+USR --> NGX : HTTP :80
+NGX --> SPA : sirve HTML, CSS y JS
+SPA --> NGX : fetch /api/**
+NGX --> BACKEND : proxy_pass\nhttp://backend:8080/api/
+BACKEND --> DB : Spring Data JPA\nJDBC :5432
+BACKEND --> SMTP : spring-boot-starter-mail\n(EnvioCorreoSmtp)
+
+CIT ..> PAC : valida paciente vigente
+CIT ..> TRA : toma duración del catálogo
+CIT ..> SEG : dentista = app_user
+REA ..> CIT : marca la cita ATENDIDA
+REA ..> TRA : congela el precio
+HIS ..> CIT : citas del paciente
+HIS ..> REA : tratamientos realizados
+FAC ..> REA : costo congelado
+FAC ..> PDF : comprobante PDF
+PAG ..> FAC : total, saldo y estado
+REC ..> CIT : cita y recordatorios
+SEG ..> DB : app_user, role, permission
+SHA ..> PAC : ClinicaBusinessException
+
+note right of SPA
+  Módulos actuales: cuenta, dashboard,
+  pacientes, historial y tratamientos.
+  La agenda y la facturación están en
+  construcción (T12 del plan).
+end note
+
+note bottom of SEG
+  SecurityConfig exige JWT y permisos
+  OP_* o ROLE_ADMINISTRADOR en cada
+  ruta /api/** (T3).
+end note
+
+note bottom of DB
+  schema.sql + seed_data.sql se ejecutan
+  al inicializar el contenedor.
+end note
+
+@enduml

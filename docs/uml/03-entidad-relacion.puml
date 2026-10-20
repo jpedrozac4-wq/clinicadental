@@ -1,0 +1,266 @@
+@startuml 03-entidad-relacion
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 45
+skinparam entity {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+  AttributeFontColor #1F2933
+  HeaderBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+' ============================================================
+' Modelo entidad-relación de schema.sql (PostgreSQL 16)
+' ============================================================
+
+' ---------- Catálogos de dominio controlado ----------
+entity "cat_estado_cita" as cat_estado_cita {
+  * id_estado_cita : SERIAL <<PK>>
+  --
+  * code : VARCHAR(30) <<UQ>>
+  * description : VARCHAR(150)
+  * active : BOOLEAN
+  * created_at : TIMESTAMPTZ
+}
+
+entity "cat_canal_notificacion" as cat_canal_notificacion {
+  * id_canal : SERIAL <<PK>>
+  --
+  * code : VARCHAR(30) <<UQ>>
+  * description : VARCHAR(150)
+  * active : BOOLEAN
+  * created_at : TIMESTAMPTZ
+}
+
+entity "cat_estado_notificacion" as cat_estado_notificacion {
+  * id_estado_notificacion : SERIAL <<PK>>
+  --
+  * code : VARCHAR(30) <<UQ>>
+  * description : VARCHAR(150)
+  * active : BOOLEAN
+  * created_at : TIMESTAMPTZ
+}
+
+entity "cat_metodo_pago" as cat_metodo_pago {
+  * id_metodo_pago : SERIAL <<PK>>
+  --
+  * code : VARCHAR(30) <<UQ>>
+  * description : VARCHAR(150)
+  * active : BOOLEAN
+  * created_at : TIMESTAMPTZ
+}
+
+entity "cat_estado_factura" as cat_estado_factura {
+  * id_estado_factura : SERIAL <<PK>>
+  --
+  * code : VARCHAR(30) <<UQ>>
+  * description : VARCHAR(150)
+  * active : BOOLEAN
+  * created_at : TIMESTAMPTZ
+}
+
+' ---------- Seguridad: usuario referenciado por las tablas clínicas ----------
+' role, permission, user_role y role_permission se modelan en 02-clases.puml
+' para no duplicar el RBAC dentro del modelo clínico.
+entity "app_user" as app_user {
+  * id_user : SERIAL <<PK>>
+  --
+  * username : VARCHAR(80) <<UQ>>
+  * password_hash : VARCHAR(255)
+  * hash_method : VARCHAR(20)
+  salt : VARCHAR(64)
+  * full_name : VARCHAR(120)
+  * email : VARCHAR(100) <<UQ>>
+  * active : BOOLEAN
+  * failed_attempts : SMALLINT
+  locked_until : TIMESTAMPTZ
+  last_login : TIMESTAMPTZ
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+' ---------- Gestión de pacientes ----------
+entity "paciente" as paciente {
+  * id_paciente : SERIAL <<PK>>
+  --
+  * nombres : VARCHAR(80)
+  * apellidos : VARCHAR(80)
+  * fecha_nacimiento : DATE
+  * telefono : VARCHAR(25)
+  * direccion : VARCHAR(200)
+  * email : VARCHAR(120)
+  * active : BOOLEAN
+  created_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+' ---------- Catálogo de tratamientos ----------
+entity "tratamiento" as tratamiento {
+  * id_tratamiento : SERIAL <<PK>>
+  --
+  * codigo : VARCHAR(20) <<UQ>>
+  * nombre : VARCHAR(120)
+  descripcion : TEXT
+  * precio : NUMERIC(10,2)
+  * duracion_minutos : INT
+  * active : BOOLEAN
+  created_by : INT <<FK>>
+  updated_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+' ---------- Agenda de citas ----------
+entity "cita" as cita {
+  * id_cita : SERIAL <<PK>>
+  --
+  * id_paciente : INT <<FK>>
+  * id_tratamiento : INT <<FK>>
+  * id_dentista : INT <<FK>>
+  * id_estado_cita : INT <<FK>>
+  * fecha_hora_inicio : TIMESTAMPTZ
+  * duracion_minutos : INT
+  motivo : VARCHAR(200)
+  notas : TEXT
+  id_cita_origen : INT <<FK>>
+  created_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+' ---------- Tratamientos realizados ----------
+entity "tratamiento_realizado" as tratamiento_realizado {
+  * id_realizado : SERIAL <<PK>>
+  --
+  * id_paciente : INT <<FK>>
+  * id_tratamiento : INT <<FK>>
+  id_cita : INT <<FK>>
+  * id_dentista : INT <<FK>>
+  * fecha_realizacion : TIMESTAMPTZ
+  * detalle_procedimiento : TEXT
+  observaciones : TEXT
+  * costo : NUMERIC(10,2)
+  created_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+' ---------- Facturación y pagos ----------
+entity "factura" as factura {
+  * id_factura : SERIAL <<PK>>
+  --
+  * numero : VARCHAR(20) <<UQ>>
+  * id_paciente : INT <<FK>>
+  * fecha_emision : TIMESTAMPTZ
+  * id_estado_factura : INT <<FK>>
+  * total : NUMERIC(10,2)
+  * saldo : NUMERIC(10,2)
+  observaciones : TEXT
+  created_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+entity "factura_detalle" as factura_detalle {
+  * id_detalle : SERIAL <<PK>>
+  --
+  * id_factura : INT <<FK>>
+  * id_realizado : INT <<FK>> <<UQ>>
+  * descripcion : VARCHAR(200)
+  * monto : NUMERIC(10,2)
+}
+
+entity "pago" as pago {
+  * id_pago : SERIAL <<PK>>
+  --
+  * id_factura : INT <<FK>>
+  * fecha_pago : TIMESTAMPTZ
+  * monto : NUMERIC(10,2)
+  * id_metodo_pago : INT <<FK>>
+  referencia : VARCHAR(80)
+  created_by : INT <<FK>>
+  * created_at : TIMESTAMPTZ
+}
+
+' ---------- Recordatorios de citas ----------
+entity "notificacion_cita" as notificacion_cita {
+  * id_notificacion : SERIAL <<PK>>
+  --
+  * id_cita : INT <<FK>>
+  * id_canal : INT <<FK>>
+  * id_estado_notificacion : INT <<FK>>
+  * destino : VARCHAR(120)
+  * fecha_objetivo : TIMESTAMPTZ
+  * mensaje : TEXT
+  enviado_en : TIMESTAMPTZ
+  error : VARCHAR(300)
+  * created_at : TIMESTAMPTZ
+}
+
+' ============================================================
+' Claves foráneas y cardinalidades reales del schema
+' ============================================================
+
+paciente ||--o{ cita : "id_paciente"
+tratamiento ||--o{ cita : "id_tratamiento"
+app_user ||--o{ cita : "id_dentista"
+cat_estado_cita ||--o{ cita : "id_estado_cita"
+cita |o--o{ cita : "id_cita_origen"
+
+paciente ||--o{ tratamiento_realizado : "id_paciente"
+tratamiento ||--o{ tratamiento_realizado : "id_tratamiento"
+cita |o--o{ tratamiento_realizado : "id_cita"
+app_user ||--o{ tratamiento_realizado : "id_dentista"
+
+paciente ||--o{ factura : "id_paciente"
+cat_estado_factura ||--o{ factura : "id_estado_factura"
+factura ||--o{ factura_detalle : "id_factura"
+tratamiento_realizado ||--o| factura_detalle : "id_realizado (UNIQUE)"
+
+factura ||--o{ pago : "id_factura"
+cat_metodo_pago ||--o{ pago : "id_metodo_pago"
+
+cita ||--o{ notificacion_cita : "id_cita"
+cat_canal_notificacion ||--o{ notificacion_cita : "id_canal"
+cat_estado_notificacion ||--o{ notificacion_cita : "id_estado_notificacion"
+
+note right of paciente
+  Baja lógica: active = false (S2).
+  CHECK fecha_nacimiento <= CURRENT_DATE.
+end note
+
+note bottom of cita
+  duracion_minutos > 0 y
+  id_cita_origen <> id_cita.
+  Sin columna de fin: se deriva
+  inicio + duración (S4).
+end note
+
+note bottom of factura
+  CHECK total > 0, saldo >= 0
+  y saldo <= total (S9, S10).
+end note
+
+note bottom of app_user
+  El RBAC (role, permission, user_role,
+  role_permission) y la auditoría
+  (cat_log_accion, audit_log) se modelan
+  en 02-clases.puml.
+  Las columnas created_by / updated_by de
+  las tablas de negocio referencian
+  app_user(id_user) ON DELETE SET NULL;
+  se omiten aquí para no duplicar aristas.
+end note
+
+@enduml

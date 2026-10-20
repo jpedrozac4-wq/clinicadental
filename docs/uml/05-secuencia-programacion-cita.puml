@@ -1,0 +1,81 @@
+@startuml 05-secuencia-programacion-cita
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #6B7280
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F4F6F8
+  ParticipantFontColor #1F2933
+  GroupBorderColor #6B7280
+  GroupBackgroundColor #F9FAFB
+  DividerBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Recepcionista /\nDentista" as USR
+participant "CitaController" as CTRL
+participant "CitaService" as SRV
+participant "PacienteRepository" as PAC
+participant "TratamientoRepository" as TRA
+participant "SystemUserRepository" as USER
+participant "EstadoCitaRepository" as EST
+participant "CitaRepository" as CITAS
+database "PostgreSQL\ncita / cat_estado_cita" as DB
+
+USR -> CTRL : POST /api/citas\n{ idPaciente, idTratamiento, idDentista,\nfechaHoraInicio, motivo? }
+CTRL -> SRV : crear(CitaRequest)
+SRV -> PAC : findByIdAndActiveTrue(idPaciente)
+alt Paciente inexistente o dado de baja
+  SRV --> CTRL : ClinicaBusinessException (404)
+  CTRL --> USR : 404 "Paciente no encontrado o dado de baja"
+else Paciente vigente
+  SRV -> TRA : findByIdAndActiveTrue(idTratamiento)
+  alt Tratamiento inexistente o inactivo
+    SRV --> CTRL : 404
+    CTRL --> USR : 404 "Tratamiento no encontrado o inactivo"
+  else Tratamiento activo (duracionMinutos)
+    SRV -> USER : findById(idDentista)
+    alt Dentista inexistente o inactivo
+      SRV --> CTRL : 404
+      CTRL --> USR : 404 "Dentista no encontrado"
+    else Dentista vigente
+      SRV -> SRV : verificarFechaFutura(fechaHoraInicio)
+      alt fechaHoraInicio <= ahora
+        SRV --> CTRL : 422 "La fecha y hora de la cita debe ser futura"
+        CTRL --> USR : 422 Unprocessable Entity
+      else Fecha futura
+        SRV -> SRV : fin = inicio + duracionMinutos
+        SRV -> CITAS : contarSolapadas(idDentista, inicio, fin)
+        note right of CITAS
+          SQL nativo sobre cita:
+          solo cuentan PROGRAMADA
+          y CONFIRMADA (S4).
+        end note
+        CITAS --> SRV : cantidad de solapamientos
+        alt cantidad > 0
+          SRV --> CTRL : 409 "El dentista ya tiene una cita en ese horario"
+          CTRL --> USR : 409 Conflict
+        else cantidad = 0
+          SRV -> EST : findByCode("PROGRAMADA")
+          EST --> SRV : EstadoCita
+          SRV -> CITAS : save(cita)
+          CITAS -> DB : INSERT INTO cita\n(estado PROGRAMADA,\nduracion del catálogo)
+          DB --> CITAS : id_cita
+          CITAS --> SRV : Cita persistida
+          SRV --> CTRL : CitaResponse.desde(cita)
+          CTRL --> USR : 201 Created (estado PROGRAMADA)
+        end
+      end
+    end
+  end
+end
+
+@enduml

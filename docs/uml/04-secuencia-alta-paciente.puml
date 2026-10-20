@@ -1,0 +1,51 @@
+@startuml 04-secuencia-alta-paciente
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #6B7280
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F4F6F8
+  ParticipantFontColor #1F2933
+  GroupBorderColor #6B7280
+  GroupBackgroundColor #F9FAFB
+  DividerBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Recepcionista" as REC
+participant "PacienteController" as CTRL
+participant "PacienteService" as SRV
+participant "PacienteRepository" as REPO
+database "PostgreSQL\npaciente" as DB
+
+REC -> CTRL : POST /api/pacientes\n{ nombres, apellidos, fechaNacimiento,\ntelefono, direccion, email }
+CTRL -> SRV : crear(PacienteRequest)
+SRV -> SRV : validar(request)
+note right of SRV
+  Campos obligatorios no vacíos,
+  fecha_nacimiento no futura y
+  email con formato válido (S1).
+end note
+
+alt Datos inválidos
+  SRV --> CTRL : ClinicaBusinessException (400)
+  CTRL --> REC : 400 {"status":"ERROR","message":...}
+  note right of REC : No se persiste ningún registro
+else Datos válidos
+  SRV -> REPO : save(paciente con active = true)
+  REPO -> DB : INSERT INTO paciente (...)
+  DB --> REPO : id_paciente (SERIAL)
+  REPO --> SRV : Paciente
+  SRV --> CTRL : PacienteResponse.desde(paciente)
+  CTRL --> REC : 201 Created + paciente con su id
+end
+
+@enduml

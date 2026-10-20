@@ -1,0 +1,54 @@
+@startuml 11-estados-factura
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam state {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+  ArrowColor #333333
+  StartColor #333333
+  EndColor #333333
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+state EMITIDA
+state "PAGO_PARCIAL" as PAGO_PARCIAL
+state PAGADA
+
+[*] --> EMITIDA : POST /api/facturas\nnumeración correlativa (S9)
+EMITIDA --> PAGO_PARCIAL : POST /api/facturas/{id}/pagos\n0 < saldo < total (S10)
+EMITIDA --> PAGADA : pago por el total\nsaldo = 0
+PAGO_PARCIAL --> PAGO_PARCIAL : nuevo pago parcial\nsaldo > 0
+PAGO_PARCIAL --> PAGADA : pago del saldo restante\nsaldo = 0
+PAGADA --> [*]
+
+note right of EMITIDA
+  total = suma del costo congelado
+  de cada factura_detalle.
+  saldo inicial = total.
+end note
+
+note right of PAGO_PARCIAL
+  saldo = total - SUM(pago.monto).
+  Un pago que supere el total
+  se rechaza con 409.
+end note
+
+note bottom of PAGADA
+  Con saldo 0 cualquier pago nuevo
+  supera el total y se rechaza (409).
+end note
+
+note left of EMITIDA
+  ANULADA existe en cat_estado_factura
+  y PagoService la rechaza, pero ninguna
+  operación del backend la asigna.
+end note
+
+@enduml

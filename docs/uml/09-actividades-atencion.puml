@@ -1,0 +1,72 @@
+@startuml 09-actividades-atencion
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam activity {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+  FontColor #1F2933
+  ArrowColor #333333
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #333333
+}
+skinparam swimlane {
+  BorderColor #333333
+  TitleBackgroundColor #E5E7EB
+  TitleFontColor #1F2933
+}
+
+|Recepción|
+start
+:Buscar paciente por nombre, apellido o email;
+if (¿Existe el paciente?) then (no)
+  :Registrar paciente (S1);
+else (sí)
+endif
+
+|Agenda|
+:Programar cita con tratamiento,\ndentista, fecha y hora (S4);
+if (¿Fecha futura?) then (no)
+  :Rechazar con 422;
+  stop
+else (sí)
+endif
+if (¿Dentista libre en ese bloque?) then (no)
+  :Rechazar con 409 por solapamiento;
+  stop
+else (sí)
+endif
+:Cita en estado PROGRAMADA\ncon la duración del catálogo;
+:Generar recordatorio PENDIENTE\n24 h antes de la cita (S5);
+
+|Atención clínica|
+:Atender al paciente en la fecha agendada;
+:Registrar tratamiento realizado\ncon detalle y costo congelado (S8);
+if (¿La cita está vinculada?) then (sí)
+  :Cita pasa a ATENDIDA;
+else (no)
+endif
+
+|Facturación|
+:Emitir factura con los tratamientos\nrealizados del paciente (S9);
+:Asignar número correlativo F-000001\nsin huecos y estado EMITIDA;
+:Registrar pago total o parcial (S10);
+if (¿Saldo de la factura = 0?) then (sí)
+  :Factura PAGADA;
+else (no)
+  :Factura PAGO_PARCIAL;
+endif
+:Entregar comprobante PDF\n(GET /api/facturas/{id}/pdf);
+
+|Recordatorios|
+:Proceso programado despacha\nlos recordatorios vencidos (S5, S15);
+if (¿SMTP configurado?) then (sí)
+  :Enviar correo y registrar ENVIADA;
+else (no)
+  :Registrar SIMULADA en la bitácora;
+endif
+:Dejar el historial consultable\ndesde la cita;
+stop
+
+@enduml
