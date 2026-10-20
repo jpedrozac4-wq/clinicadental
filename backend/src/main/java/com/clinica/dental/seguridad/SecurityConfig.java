@@ -25,12 +25,12 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Stateless security configuration for the ERP and the B2C storefront.
+ * Configuracion de seguridad stateless del sistema de clinica dental.
  *
- * <p>The storefront reads public catalog, checkout and tracking endpoints anonymously, while every
- * back-office route is bound to the nine canonical roles and their granular {@code OP_*} permissions
- * (see {@link CustomUserDetailsService}). Authorization is role based at the route level and can be
- * refined per use case with {@code @PreAuthorize}.
+ * <p>Toda la API es cerrada: no hay portal publico. El login entrega un JWT que transporta los
+ * roles canonicos ({@code ROLE_ADMINISTRADOR}, {@code ROLE_DENTISTA}, {@code ROLE_RECEPCIONISTA})
+ * junto con los permisos granulares {@code OP_*} definidos en la matriz de roles. La autorizacion
+ * se aplica por metodo HTTP y ruta, y puede refinarse por caso de uso con {@code @PreAuthorize}.
  */
 @Configuration
 @EnableWebSecurity
@@ -71,69 +71,75 @@ public class SecurityConfig {
                     writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Acceso denegado"))
             )
             .authorizeHttpRequests(auth -> auth
-                // ---- Static frontend assets ----
-                .requestMatchers("/", "/index.html", "/portal-erp.html", "/login.html",
-                                 "/assets/**", "/favicon.ico", "/*.css", "/*.js").permitAll()
+                // ---- Frontend estatico (en produccion lo sirve Nginx) ----
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/*.css", "/*.js").permitAll()
 
                 // Error dispatch must stay open, otherwise any handler exception
                 // resurfaces as a 401 on the /error forward.
                 .requestMatchers("/error").permitAll()
 
-                // ---- Authentication ----
+                // ---- Autenticacion ----
                 .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
-                .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/storage/**").permitAll()
 
-                // ---- Back-office catalog administration (must precede the public catalog rule) ----
-                .requestMatchers("/api/catalogo/admin/**")
-                    .hasAnyAuthority("OP_CATALOGO_CREAR_EDITAR", "ROLE_ADMIN")
+                // ---- Gestion de pacientes (S1, S2, S3) ----
+                // El historial clinico tiene permiso propio y se declara antes que la
+                // lectura general, porque Spring Security evalua las reglas en orden.
+                .requestMatchers(HttpMethod.GET, "/api/pacientes/*/historial")
+                    .hasAnyAuthority("OP_PACIENTE_HISTORIAL_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.GET, "/api/pacientes/**")
+                    .hasAnyAuthority("OP_PACIENTE_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/pacientes")
+                    .hasAnyAuthority("OP_PACIENTE_CREAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.PUT, "/api/pacientes/*")
+                    .hasAnyAuthority("OP_PACIENTE_EDITAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.DELETE, "/api/pacientes/*")
+                    .hasAnyAuthority("OP_PACIENTE_ELIMINAR", "ROLE_ADMINISTRADOR")
 
-                // ---- Public B2C storefront ----
-                .requestMatchers(HttpMethod.GET, "/api/catalogo/**").permitAll()
-                // Catalog writes stay restricted to the catalog permission.
-                .requestMatchers("/api/catalogo/**").hasAnyAuthority("OP_CATALOGO_CREAR_EDITAR", "ROLE_ADMIN")
-                .requestMatchers("/api/checkout/**").permitAll()
-                .requestMatchers("/api/tracking/**").permitAll()
-                .requestMatchers("/api/marketing/public/**").permitAll()
+                // ---- Catalogo de tratamientos (S7) ----
+                .requestMatchers(HttpMethod.GET, "/api/tratamientos/**")
+                    .hasAnyAuthority("OP_TRATAMIENTO_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/tratamientos", "/api/tratamientos/**")
+                    .hasAnyAuthority("OP_TRATAMIENTO_CREAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.PUT, "/api/tratamientos/*")
+                    .hasAnyAuthority("OP_TRATAMIENTO_EDITAR", "ROLE_ADMINISTRADOR")
 
-                // ---- Back office by department ----
-                .requestMatchers("/api/gerencia/**").hasAnyAuthority(
-                    "ROLE_ADMIN", "ROLE_GERENTE_GENERAL", "ROLE_GERENTE_FINANCIERO", "ROLE_GERENTE_VENTAS")
-                .requestMatchers("/api/direccion/**").hasAnyAuthority(
-                    "OP_PRECIOS_SOLICITAR_CAMBIO", "OP_PRECIOS_APROBAR_CAMBIO",
-                    "ROLE_ADMIN", "ROLE_GERENTE_GENERAL", "ROLE_GERENTE_VENTAS")
-                // Arqueo audit is its own permission (OP_POS_ARQUEO_AUDITAR). This matcher must
-                // precede the general /api/pos/** rule below, because Spring Security evaluates
-                // rules in order and a later rule for this exact path would never be reached.
-                .requestMatchers("/api/pos/sesiones/*/auditar")
-                    .hasAnyAuthority("OP_POS_ARQUEO_AUDITAR", "ROLE_ADMIN")
-                .requestMatchers("/api/pos/**").hasAnyAuthority(
-                    "OP_POS_VENTA_COBRAR", "OP_POS_CAJA_APERTURA_CIERRE", "OP_DEVOLUCION_PROCESAR",
-                    "ROLE_ADMIN", "ROLE_GERENTE_VENTAS")
-                .requestMatchers("/api/inventario/**").hasAnyAuthority(
-                    "OP_STOCK_CONSULTAR", "OP_KARDEX_AUDITAR", "OP_ABASTECIMIENTO_SOLICITAR",
-                    "OP_ABASTECIMIENTO_DESPACHAR", "OP_STOCK_BAJA_SOLICITAR", "OP_STOCK_BAJA_APROBAR",
-                    "ROLE_ADMIN")
-                .requestMatchers("/api/compras/**").hasAnyAuthority(
-                    "OP_COMPRAS_SOLICITAR", "OP_COMPRAS_ORDEN_EMITIR", "OP_ACONDICIONAMIENTO_APROBAR",
-                    "ROLE_ADMIN", "ROLE_GERENTE_GENERAL")
-                .requestMatchers("/api/logistica/**").hasAnyAuthority(
-                    "OP_PICKING_PACKING_BODEGA", "OP_DESPACHO_ASIGNAR_RUTA", "OP_DESPACHO_CONFIRMAR_OTP",
-                    "ROLE_ADMIN", "ROLE_ENCARGADO_ALMACEN", "ROLE_AUXILIAR_ALMACEN")
-                .requestMatchers("/api/facturacion/**").hasAnyAuthority(
-                    "OP_FACTURAS_NOTAS_CREDITO_EMITIR", "OP_CONCILIACION_PASARELA_VER",
-                    "ROLE_ADMIN", "ROLE_CONTADOR", "ROLE_GERENTE_FINANCIERO")
-                .requestMatchers("/api/soporte/**").hasAnyAuthority(
-                    "OP_TICKETS_GESTIONAR_DERIVAR", "OP_TICKETS_SUPERVISAR_ALERTAS",
-                    "ROLE_ADMIN", "ROLE_GERENTE_GENERAL")
-                .requestMatchers("/api/marketing/**").hasAnyAuthority(
-                    "ROLE_ADMIN", "ROLE_GERENTE_VENTAS")
-                .requestMatchers("/api/rrhh/**").hasAnyAuthority(
-                    "ROLE_ADMIN", "ROLE_GERENTE_GENERAL", "ROLE_GERENTE_FINANCIERO")
-                .requestMatchers("/api/administracion/**").hasAnyAuthority(
-                    "OP_USUARIOS_ROLES_ADMIN", "OP_AUDITORIA_LOGS_VER", "ROLE_ADMIN")
-                .requestMatchers("/api/auditoria/**").hasAnyAuthority(
-                    "OP_AUDITORIA_LOGS_VER", "ROLE_ADMIN")
+                // ---- Tratamientos realizados (S8) ----
+                .requestMatchers(HttpMethod.GET, "/api/tratamientos-realizados/**")
+                    .hasAnyAuthority("OP_REALIZADO_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/tratamientos-realizados")
+                    .hasAnyAuthority("OP_REALIZADO_REGISTRAR", "ROLE_ADMINISTRADOR")
+
+                // ---- Citas (S4, S6) ----
+                // Reprogramar y cancelar se declaran antes que la lectura de la agenda.
+                .requestMatchers(HttpMethod.PATCH, "/api/citas/*/reprogramar")
+                    .hasAnyAuthority("OP_CITA_REPROGRAMAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.PATCH, "/api/citas/*/cancelar")
+                    .hasAnyAuthority("OP_CITA_CANCELAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.GET, "/api/citas/**")
+                    .hasAnyAuthority("OP_CITA_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/citas")
+                    .hasAnyAuthority("OP_CITA_CREAR", "ROLE_ADMINISTRADOR")
+
+                // ---- Recordatorios de citas (S5) ----
+                .requestMatchers(HttpMethod.GET, "/api/recordatorios/**")
+                    .hasAnyAuthority("OP_RECORDATORIO_VER", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/recordatorios/**")
+                    .hasAnyAuthority("OP_RECORDATORIO_ENVIAR", "ROLE_ADMINISTRADOR")
+
+                // ---- Facturacion y pagos (S9, S10) ----
+                // El pago sobre una factura concreta precede a la lectura de comprobantes.
+                .requestMatchers(HttpMethod.POST, "/api/facturas/*/pagos")
+                    .hasAnyAuthority("OP_PAGO_REGISTRAR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.POST, "/api/facturas")
+                    .hasAnyAuthority("OP_FACTURA_EMITIR", "ROLE_ADMINISTRADOR")
+                .requestMatchers(HttpMethod.GET, "/api/facturas/**")
+                    .hasAnyAuthority("OP_FACTURA_VER", "ROLE_ADMINISTRADOR")
+
+                // ---- Seguridad y auditoria ----
+                .requestMatchers("/api/usuarios/**")
+                    .hasAnyAuthority("OP_USUARIOS_ADMIN", "ROLE_ADMINISTRADOR")
+                .requestMatchers("/api/auditoria/**")
+                    .hasAnyAuthority("OP_AUDITORIA_VER", "ROLE_ADMINISTRADOR")
 
                 .anyRequest().authenticated()
             )
