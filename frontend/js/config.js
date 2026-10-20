@@ -39,12 +39,16 @@ export const CONFIG = {
         // ---- Catalogo de tratamientos (S7) ----
         TRATAMIENTOS: `${API}/tratamientos`,
 
-        // ---- Reservados: agenda, facturacion y recordatorios ----
-        // El backend ya declara las rutas y permisos de estas areas; los modulos
-        // del frontend llegan en la entrega de agenda/facturacion.
+        // ---- Agenda de citas (S4, S6) ----
         CITAS: `${API}/citas`,
+
+        // ---- Tratamientos realizados (S3, S8) ----
         TRATAMIENTOS_REALIZADOS: `${API}/tratamientos-realizados`,
+
+        // ---- Facturacion y pagos (S9, S10) ----
         FACTURAS: `${API}/facturas`,
+
+        // ---- Reservado: recordatorios (S5, S15), otro modulo lo entrega ----
         RECORDATORIOS: `${API}/recordatorios`
     },
 
@@ -77,10 +81,18 @@ export const CONFIG = {
         PACIENTE_ELIMINAR: "OP_PACIENTE_ELIMINAR",
         PACIENTE_HISTORIAL_VER: "OP_PACIENTE_HISTORIAL_VER",
         CITA_VER: "OP_CITA_VER",
+        CITA_CREAR: "OP_CITA_CREAR",
+        CITA_REPROGRAMAR: "OP_CITA_REPROGRAMAR",
+        CITA_CANCELAR: "OP_CITA_CANCELAR",
+        CITA_ATENDER: "OP_CITA_ATENDER",
         TRATAMIENTO_VER: "OP_TRATAMIENTO_VER",
         TRATAMIENTO_CREAR: "OP_TRATAMIENTO_CREAR",
         TRATAMIENTO_EDITAR: "OP_TRATAMIENTO_EDITAR",
+        REALIZADO_VER: "OP_REALIZADO_VER",
+        REALIZADO_REGISTRAR: "OP_REALIZADO_REGISTRAR",
         FACTURA_VER: "OP_FACTURA_VER",
+        FACTURA_EMITIR: "OP_FACTURA_EMITIR",
+        PAGO_REGISTRAR: "OP_PAGO_REGISTRAR",
         RECORDATORIO_VER: "OP_RECORDATORIO_VER"
     },
 
@@ -114,4 +126,19 @@ export function apiQuery(base, params = {}) {
 /** Endpoint del historial clinico de un paciente (S3). */
 export function pacienteHistorialUrl(id) {
     return `${apiUrl(CONFIG.ENDPOINTS.PACIENTES, id)}/historial`;
+}
+
+/** Accion sobre una cita: /api/citas/{id}/reprogramar | cancelar (S6). */
+export function citaAccionUrl(id, accion) {
+    return `${apiUrl(CONFIG.ENDPOINTS.CITAS, id)}/${accion}`;
+}
+
+/** Comprobante PDF de una factura (S9). */
+export function facturaPdfUrl(id) {
+    return `${apiUrl(CONFIG.ENDPOINTS.FACTURAS, id)}/pdf`;
+}
+
+/** Pagos registrados sobre una factura (S10). */
+export function facturaPagosUrl(id) {
+    return `${apiUrl(CONFIG.ENDPOINTS.FACTURAS, id)}/pagos`;
 }

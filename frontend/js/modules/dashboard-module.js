@@ -138,6 +138,20 @@ export class DashboardView {
                 text: "Catálogo de tratamientos"
             }));
         }
+        if (AuthService.can(CONFIG.PERMISSIONS.CITA_VER)) {
+            acciones.push(el("a", {
+                class: "btn btn-outline",
+                href: "#/agenda",
+                text: "Ver agenda"
+            }));
+        }
+        if (AuthService.can(CONFIG.PERMISSIONS.FACTURA_VER)) {
+            acciones.push(el("a", {
+                class: "btn btn-outline",
+                href: "#/facturacion",
+                text: "Facturación y pagos"
+            }));
+        }
 
         return el("div", { class: "card" }, [
             el("div", { class: "card-header" }, [el("h2", { text: "Accesos rápidos" })]),
@@ -156,12 +170,14 @@ export class DashboardView {
             ]),
             el("p", {
                 class: "text-muted text-sm",
-                text: "Agenda de citas, facturación con pagos parciales y bitácora de recordatorios. El router y el menú ya los reservan."
+                text: "Agenda, facturación con pagos parciales y catálogo clínico ya están operativos. Queda pendiente la bitácora de recordatorios, que el router y el menú ya reservan."
             }),
-            el("ul", { class: "pending-list" }, visibles.map(route => el("li", {}, [
-                el("span", { class: "pending-name", text: route.label }),
-                el("span", { class: "text-muted text-sm", text: `Specs ${route.specs}` })
-            ])))
+            visibles.length
+                ? el("ul", { class: "pending-list" }, visibles.map(route => el("li", {}, [
+                    el("span", { class: "pending-name", text: route.label }),
+                    el("span", { class: "text-muted text-sm", text: `Specs ${route.specs}` })
+                ])))
+                : el("p", { class: "text-muted text-sm", text: "No quedan módulos reservados para tu perfil." })
         ]);
     }
 

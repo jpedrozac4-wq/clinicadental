@@ -51,6 +51,16 @@ export const ROUTES = [
         exportName: "PacienteHistorialView"
     },
     {
+        id: "agenda",
+        path: "/agenda",
+        label: "Agenda de citas",
+        group: "Atención clínica",
+        icon: "▦",
+        permissions: [PERMISSIONS.CITA_VER],
+        loader: () => import("../modules/agenda-module.js"),
+        exportName: "AgendaView"
+    },
+    {
         id: "tratamientos",
         path: "/tratamientos",
         label: "Catálogo de tratamientos",
@@ -59,6 +69,16 @@ export const ROUTES = [
         permissions: [PERMISSIONS.TRATAMIENTO_VER],
         loader: () => import("../modules/tratamientos-module.js"),
         exportName: "TratamientosView"
+    },
+    {
+        id: "facturacion",
+        path: "/facturacion",
+        label: "Facturación y pagos",
+        group: "Administración",
+        icon: "▤",
+        permissions: [PERMISSIONS.FACTURA_VER],
+        loader: () => import("../modules/facturacion-module.js"),
+        exportName: "FacturacionView"
     },
     {
         id: "cuenta",
@@ -74,34 +94,12 @@ export const ROUTES = [
 ];
 
 /**
- * Rutas reservadas para la entrega de agenda, facturacion y recordatorios.
- * El backend ya expone estos recursos y SecurityConfig ya declara sus permisos;
+ * Rutas reservadas para la entrega de recordatorios.
+ * El backend ya expone el recurso y SecurityConfig ya declara sus permisos;
  * falta el modulo del frontend. Cuando exista, se mueve la entrada a ROUTES y el
  * sidebar la agrupara sola, sin tocar el shell ni el router.
  */
 export const RUTAS_RESERVADAS = [
-    {
-        id: "agenda",
-        path: "/agenda",
-        label: "Agenda de citas",
-        group: "Atención clínica",
-        icon: "▦",
-        permissions: [PERMISSIONS.CITA_VER],
-        loader: () => import("../modules/agenda-module.js"),
-        exportName: "AgendaView",
-        specs: "S4, S5, S6"
-    },
-    {
-        id: "facturacion",
-        path: "/facturacion",
-        label: "Facturación y pagos",
-        group: "Administración",
-        icon: "▤",
-        permissions: [PERMISSIONS.FACTURA_VER],
-        loader: () => import("../modules/facturacion-module.js"),
-        exportName: "FacturacionView",
-        specs: "S9, S10"
-    },
     {
         id: "recordatorios",
         path: "/recordatorios",

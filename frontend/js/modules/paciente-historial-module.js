@@ -1,18 +1,25 @@
 /* ============================================================================
-   VISTA: HISTORIAL CLINICO DE UN PACIENTE (S3)
+   VISTA: HISTORIAL CLINICO DE UN PACIENTE (S3, S8)
    ----------------------------------------------------------------------------
    Consume GET /api/pacientes/{id}/historial, que devuelve las citas y los
    tratamientos realizados del paciente ordenados del mas reciente al mas
    antiguo. La ficha (GET /api/pacientes/{id}) se pide en paralelo para mostrar
    los datos personales; si el paciente fue dado de baja la ficha responde 404
    pero el historial sigue disponible, y la vista lo informa sin romperse.
+
+   Desde esta vista se registra un tratamiento realizado (S8) con el paciente
+   ya fijado, usando el mismo panel que la agenda. El costo lo congela el
+   backend desde el catalogo: no se envia desde el cliente.
    ============================================================================ */
 import { PacienteService } from "../services/paciente-service.js";
 import { ApiError } from "../services/api.js";
+import { AuthService } from "../services/auth-service.js";
+import { CONFIG } from "../config.js";
 import {
     el, pageHeader, loadingState, errorState, table, money, dateTime, dateOnly,
     edad, estadoBadge, detailRow
 } from "../core/dom.js";
+import { RealizadoForm } from "./realizado-form.js";
 
 export class PacienteHistorialView {
 
@@ -30,9 +37,17 @@ export class PacienteHistorialView {
             loadingState("Cargando historial clínico…")
         ]);
 
+        this.paciente = null;
+        this.realizadoForm = new RealizadoForm({
+            onRegistered: async () => {
+                await this.mount(this.container);
+            }
+        });
+
         container.replaceChildren(
             this.header(null),
-            destino
+            destino,
+            this.realizadoForm.element
         );
 
         if (!idPaciente) {
@@ -60,9 +75,16 @@ export class PacienteHistorialView {
         const baja = !ficha && fichaRes.status === "rejected"
             && fichaRes.reason instanceof ApiError && fichaRes.reason.status === 404;
 
+        this.paciente = {
+            id: idPaciente,
+            nombres: ficha ? ficha.nombres : (historial.paciente || ""),
+            apellidos: ficha ? ficha.apellidos : ""
+        };
+
         this.container.replaceChildren(
             this.header(historial.paciente || nombreDesdeFicha(ficha), baja),
-            destino
+            destino,
+            this.realizadoForm.element
         );
 
         destino.replaceChildren(
@@ -124,15 +146,27 @@ export class PacienteHistorialView {
             money(tratamiento.costo)
         ]);
 
+        const acciones = [
+            el("span", { class: "badge badge-primary", text: `${tratamientos.length} registro(s)` }),
+            tratamientos.length
+                ? el("span", { class: "badge badge-success", text: `Costo acumulado ${money(total)}` })
+                : null
+        ].filter(Boolean);
+
+        if (AuthService.can(CONFIG.PERMISSIONS.REALIZADO_REGISTRAR)) {
+            acciones.push(el("button", {
+                type: "button",
+                class: "btn btn-sm btn-primary",
+                id: "btn-registrar-realizado",
+                text: "Registrar tratamiento realizado",
+                on: { click: () => this.realizadoForm.abrir({ paciente: this.paciente }) }
+            }));
+        }
+
         return el("div", { class: "card" }, [
             el("div", { class: "card-header" }, [
                 el("h2", { text: "Tratamientos realizados" }),
-                el("div", { class: "card-header-actions" }, [
-                    el("span", { class: "badge badge-primary", text: `${tratamientos.length} registro(s)` }),
-                    tratamientos.length
-                        ? el("span", { class: "badge badge-success", text: `Costo acumulado ${money(total)}` })
-                        : null
-                ].filter(Boolean))
+                el("div", { class: "card-header-actions" }, acciones)
             ]),
             table(
                 ["Fecha de realización", "Tratamiento", "Detalle del procedimiento", "Costo"],
