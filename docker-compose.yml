@@ -1,7 +1,8 @@
 # ============================================================================
-# SISTEMA INTEGRAL ERP Y E-COMMERCE B2C FUNCIONAL - INDUSTRIA DEL CALZADO
+# SISTEMA DE GESTION PARA CONSULTORIO DENTAL
 # ORQUESTACION DOCKER COMPOSE (docker-compose.yml)
-# Servicios: PostgreSQL 16 + Backend Java + Nginx Frontend Vainilla
+# Servicios: PostgreSQL 16 + Backend Java (Spring Boot) + Nginx (SPA clinica)
+# Base de datos inicializada desde schema.sql y seed_data.sql
 # ============================================================================
 
 services:
@@ -31,7 +32,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - erp-network
+      - clinica_dental_net
 
   # --------------------------------------------------------------------------
   # 2. BACKEND TRANSACCIONAL: Java (Spring Boot - Package by Feature)
@@ -52,18 +53,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgrespassword
       SPRING_JPA_HIBERNATE_DDL_AUTO: "none"
       SERVER_PORT: 8080
-      CLINICA_JWT_SECRET: ${CLINICA_JWT_SECRET:-clinica-dental-dev-secret-key-32bytes}
+      CLINICA_JWT_SECRET: >-
+        ${CLINICA_JWT_SECRET:-clinica-dental-dev-secret-key-32bytes}
       CLINICA_JWT_EXPIRATION_SECONDS: ${CLINICA_JWT_EXPIRATION_SECONDS:-28800}
     ports:
       - "8085:8080"
-    volumes:
-      # Las fotos de variante viven en storage/calzado y la base
-      # persiste sus urls. Sin este volumen quedarian en la capa
-      # escribible del contenedor: recrearlo las borraria y dejaria
-      # esas urls apuntando a archivos inexistentes.
-      - backend_storage:/app/storage
     networks:
-      - erp-network
+      - clinica_dental_net
 
   # --------------------------------------------------------------------------
   # 3. FRONTEND VAINILLA Y REVERSE PROXY: Nginx Alpine
@@ -80,18 +76,16 @@ services:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      - erp-network
+      - clinica_dental_net
 
 # ----------------------------------------------------------------------------
 # VOLUMENES PERSISTENTES Y RED AISLADA
 # ----------------------------------------------------------------------------
 volumes:
   postgres_data:
-    name: erp_calzado_pgdata
-  backend_storage:
-    name: erp_calzado_storage
+    name: clinica_dental_pgdata
 
 networks:
-  erp-network:
-    name: erp_calzado_net
+  clinica_dental_net:
+    name: clinica_dental_net
     driver: bridge

@@ -19,8 +19,9 @@ import java.util.List;
 /**
  * Reads the {@code Authorization: Bearer <token>} header and populates the security context.
  *
- * <p>A missing or invalid token is not an error here: the request continues anonymously and the
- * authorization rules decide the outcome, which keeps public storefront endpoints working.
+ * <p>Un token ausente o invalido no es un error en este punto: la peticion continua de forma
+ * anonima y las reglas de autorizacion deciden el resultado, de modo que los endpoints publicos
+ * (login y recursos estaticos) sigan respondiendo.
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
