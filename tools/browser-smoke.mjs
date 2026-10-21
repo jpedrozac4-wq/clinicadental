@@ -1532,8 +1532,11 @@ try {
         assert(outcome.ok, `No se pudo emitir el comprobante: ${outcome.error}`);
 
         await setValue(cdp, "#filtro-factura", STAMP);
+        // El listado se recarga después del toast de éxito, así que contar filas no alcanza:
+        // mientras recarga, la única fila es el mensaje de "sin coincidencias" y el paso
+        // leería ese texto como si fuera un número de comprobante.
         await cdp.waitFor(
-            "return document.querySelectorAll('#lista-facturas tbody tr').length === 1;",
+            "const first = document.querySelector('#lista-facturas tbody tr td'); return !!first && first.textContent.trim().startsWith('F-');",
             20000,
             "comprobante filtrado en el listado"
         );
@@ -1569,6 +1572,13 @@ try {
 
     /** Reads the invoice detail panel (labels + amounts) and its payment table. */
     async function readDetalle(cdp) {
+        // El panel se monta cuando termina el GET del comprobante: esperar el contenido
+        // evita leer un detalle a medio pintar y reportar un falso "no esta montado".
+        await cdp.waitFor(
+            "return Boolean(document.querySelector('#detalle-factura .detail-list'));",
+            20000,
+            "detalle del comprobante con contenido"
+        );
         const detail = await cdp.evaluate(`
             const root = document.querySelector('#detalle-factura .detail-list');
             if (!root) return null;
@@ -1694,7 +1704,7 @@ try {
         // The list row must agree with the detail panel.
         await setValue(cdp, "#filtro-factura", STAMP);
         await cdp.waitFor(
-            "return document.querySelectorAll('#lista-facturas tbody tr').length === 1;",
+            "const first = document.querySelector('#lista-facturas tbody tr td'); return !!first && first.textContent.trim().startsWith('F-');",
             20000,
             "comprobante pagado en el listado"
         );
@@ -1718,86 +1728,88 @@ try {
         // The module fetches the PDF with the session token and then hands the
         // blob to the browser: inspect the real HTTP response instead of
         // trusting the download prompt (which headless Chrome cannot show).
-        let resolvePdf;
-        const pdfPromise = new Promise((resolve) => { resolvePdf = resolve; });
-        let target = null;
-
-        const offResponse = cdp.on("Network.responseReceived", (params) => {
-            const url = params.response?.url || "";
-            if (target) return;
-            if (!url.includes("/api/facturas/") || !url.includes("/pdf")) return;
-            const headers = params.response.headers || {};
-            const contentType = Object.entries(headers)
-                .find(([name]) => name.toLowerCase() === "content-type")?.[1]
-                || params.response.mimeType
-                || "";
-            target = {
-                requestId: params.requestId,
-                status: params.response.status,
-                contentType
-            };
-        });
-
-        const offFinished = cdp.on("Network.loadingFinished", async (params) => {
-            if (!target || params.requestId !== target.requestId) return;
-            try {
-                const body = await cdp.send("Network.getResponseBody", { requestId: params.requestId });
-                const buffer = Buffer.from(body.body, body.base64Encoded ? "base64" : "utf8");
-                resolvePdf({
-                    ...target,
-                    bytes: buffer.length,
-                    magic: buffer.subarray(0, 5).toString("latin1"),
-                    buffer
-                });
-            } catch (error) {
-                resolvePdf({ ...target, error: error.message });
+        // Chrome no expone el cuerpo de una respuesta que la pagina consume como blob:
+        // Network.getResponseBody devuelve una firma vacia. El hook se instala en la propia
+        // pagina, envuelve window.fetch y clona la respuesta del PDF para guardar los bytes
+        // reales que recibio la aplicacion.
+        await cdp.evaluate(`
+            if (!window.__smokePdfHook) {
+                window.__smokePdfHook = true;
+                window.__smokePdf = null;
+                const originalFetch = window.fetch;
+                window.fetch = async (...args) => {
+                    const response = await originalFetch(...args);
+                    const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
+                    if (url.includes("/api/facturas/") && url.includes("/pdf")) {
+                        try {
+                            const bytes = new Uint8Array(await response.clone().arrayBuffer());
+                            window.__smokePdf = {
+                                status: response.status,
+                                contentType: response.headers.get("content-type") || "",
+                                firma: Array.from(bytes.slice(0, 8)),
+                                total: bytes.length,
+                                data: Array.from(bytes)
+                            };
+                        } catch (error) {
+                            window.__smokePdf = { error: String(error) };
+                        }
+                    }
+                    return response;
+                };
             }
-        });
+            window.__smokePdf = null;
+            return true;
+        `);
 
-        const offFailed = cdp.on("Network.loadingFailed", (params) => {
-            if (!target || params.requestId !== target.requestId) return;
-            resolvePdf({ ...target, error: params.errorText || "request fallida" });
-        });
+        const clicked = await cdp.evaluate(`
+            const root = document.querySelector('#detalle-factura');
+            if (!root) return false;
+            const button = Array.from(root.querySelectorAll('button'))
+                .find(node => node.textContent.includes('Descargar PDF'));
+            if (!button) return false;
+            button.click();
+            return true;
+        `);
+        assert(clicked, "No se encontro el boton 'Descargar PDF' del detalle del comprobante.");
 
-        try {
-            const clicked = await cdp.evaluate(`
-                const root = document.querySelector('#detalle-factura');
-                if (!root) return false;
-                const button = Array.from(root.querySelectorAll('button'))
-                    .find(node => node.textContent.includes('Descargar PDF'));
-                if (!button) return false;
-                button.click();
-                return true;
-            `);
-            assert(clicked, "No se encontró el botón 'Descargar PDF' del detalle del comprobante.");
+        const captured = await withTimeout((async () => {
+            for (let intento = 0; intento < 300; intento += 1) {
+                const value = await cdp.evaluate("return window.__smokePdf;");
+                if (value) return value;
+                await sleep(100);
+            }
+            return null;
+        })(), 40000, "el comprobante PDF");
 
-            const pdf = await withTimeout(pdfPromise, 30000, "el comprobante PDF");
-            assert(!pdf.error, `La descarga del comprobante falló: ${pdf.error}`);
-            assert(pdf.status === 200, `El comprobante respondió HTTP ${pdf.status} en lugar de 200.`);
-            assert(/application\/pdf/i.test(pdf.contentType),
-                `El comprobante no se sirve como application/pdf: "${pdf.contentType}".`);
-            assert(pdf.magic === "%PDF-", `El cuerpo del comprobante no es un PDF (firma "${pdf.magic}").`);
-            assert(pdf.bytes > 1000, `El PDF descargado es sospechosamente chico: ${pdf.bytes} bytes.`);
+        assert(captured, "La aplicacion no descargo el comprobante: no hubo peticion al PDF.");
+        assert(!captured.error, `La descarga del comprobante fallo: ${captured.error}`);
+        const pdf = {
+            status: captured.status,
+            contentType: captured.contentType,
+            bytes: captured.total,
+            magic: Buffer.from(captured.firma).subarray(0, 5).toString("latin1"),
+            buffer: Buffer.from(captured.data)
+        };
+        assert(pdf.status === 200, `El comprobante respondio HTTP ${pdf.status} en lugar de 200.`);
+        assert(/application\/pdf/i.test(pdf.contentType),
+            `El comprobante no se sirve como application/pdf: "${pdf.contentType}".`);
+        assert(pdf.magic === "%PDF-", `El cuerpo del comprobante no es un PDF (firma "${pdf.magic}").`);
+        assert(pdf.bytes > 1000, `El PDF descargado es sospechosamente chico: ${pdf.bytes} bytes.`);
 
-            const file = `factura-${factura.numero}.pdf`;
-            writeFileSync(join(OUT, file), pdf.buffer);
-            report.artifacts.push(file);
+        const file = `factura-${factura.numero}.pdf`;
+        writeFileSync(join(OUT, file), pdf.buffer);
+        report.artifacts.push(file);
 
-            const toast = await waitToast(cdp, `Comprobante ${factura.numero} descargado`);
-            return {
-                numero: factura.numero,
-                contentType: pdf.contentType,
-                status: pdf.status,
-                bytes: pdf.bytes,
-                magic: pdf.magic,
-                artifact: file,
-                toast
-            };
-        } finally {
-            offResponse();
-            offFinished();
-            offFailed();
-        }
+        const toast = await waitToast(cdp, `Comprobante ${factura.numero} descargado`);
+        return {
+            numero: factura.numero,
+            contentType: pdf.contentType,
+            status: pdf.status,
+            bytes: pdf.bytes,
+            magic: pdf.magic,
+            artifact: file,
+            toast
+        };
     });
 
     /* ---------------- 3d. Cleanup: logical delete of the created patient ---------------- */
