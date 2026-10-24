@@ -1,18 +1,23 @@
 /* ============================================================================
    VISTA: PANEL GENERAL (DASHBOARD)
    ----------------------------------------------------------------------------
-   Resumen operativo de la clinica construido solo con datos reales del backend
-   disponible en esta entrega: pacientes registrados y catalogo de tratamientos.
-   Las areas clinicas y administrativas (pacientes, historial, agenda, catalogo,
-   facturacion con pagos y bitacora de recordatorios) ya estan entregadas: si el
-   registro de rutas reservadas quedara con alguna entrada, esta vista anunciaria
-   el modulo como pendiente, con el mismo metadato que usara el router.
+   Resumen operativo de la clinica construido solo con datos reales del backend:
+   pacientes registrados y catalogo de tratamientos.
+
+   S22: el panel no anuncia modulos en preparacion ni rutas reservadas. Todos los
+   modulos entregados (panel, pacientes, agenda, catalogo, facturacion con pagos,
+   recordatorios, reportes, usuarios y auditoria) viven en el sidebar que arma
+   core/shell.js a partir de ROUTES; el panel solo ofrece accesos rapidos a los
+   que el perfil puede entrar.
+
+   Base limpia: sin pacientes ni tratamientos las tarjetas muestran 0 y los
+   promedios "—", nunca un error. Un fallo de red se marca por bloque con
+   Promise.allSettled, sin romper el resto del panel.
    ============================================================================ */
 import { AuthService } from "../services/auth-service.js";
 import { PacienteService } from "../services/paciente-service.js";
 import { TratamientoService } from "../services/tratamiento-service.js";
 import { CONFIG } from "../config.js";
-import { RUTAS_RESERVADAS } from "../core/routes.js";
 import {
     el, pageHeader, loadingState, kpiCard, table, money, edad, estadoBadge
 } from "../core/dom.js";
@@ -44,7 +49,7 @@ export class DashboardView {
         containerEl.replaceChildren(
             header,
             this.kpis(pacientes, tratamientos, { pacientesOk, tratamientosOk }),
-            this.pendientesCard() || this.accionesRapidas(),
+            this.accionesRapidas(),
             this.pacientesRecientes(pacientes, pacientesOk),
             this.contextoSesion(session)
         );
@@ -151,44 +156,19 @@ export class DashboardView {
                 text: "Facturación y pagos"
             }));
         }
+        if (AuthService.can(CONFIG.PERMISSIONS.REPORTE_VER)) {
+            acciones.push(el("a", {
+                class: "btn btn-outline",
+                href: "#/reportes",
+                text: "Reportes"
+            }));
+        }
 
         return el("div", { class: "card" }, [
             el("div", { class: "card-header" }, [el("h2", { text: "Accesos rápidos" })]),
             el("div", { class: "quick-actions" }, acciones.length
                 ? acciones
                 : [el("p", { class: "text-muted text-sm", text: "Tu perfil no tiene acciones habilitadas." })])
-        ]);
-    }
-
-    /**
-     * Tarjeta de accesos rapidos junto al anuncio de modulos reservados. Sin
-     * rutas reservadas (el caso de esta entrega) queda solo la de accesos.
-     */
-    pendientesCard() {
-        const reservadas = this.modulosEnPreparacion();
-        return reservadas
-            ? el("div", { class: "grid-2" }, [this.accionesRapidas(), reservadas])
-            : null;
-    }
-
-    /**
-     * Modulos que el registro de rutas reservadas anuncia como pendientes. Hoy
-     * la lista esta vacia porque la bitacora de recordatorios ya se entrego, de
-     * modo que la tarjeta no se monta; el mecanismo sigue vivo para lo que venga.
-     */
-    modulosEnPreparacion() {
-        const visibles = RUTAS_RESERVADAS.filter(route => AuthService.canAccess(route));
-        if (!visibles.length) return null;
-
-        return el("div", { class: "card" }, [
-            el("div", { class: "card-header" }, [
-                el("h2", { text: "Módulos en preparación" }),
-                el("span", { class: "badge badge-primary", text: "Próxima entrega" })
-            ]),
-            el("ul", { class: "pending-list" }, visibles.map(route => el("li", {}, [
-                el("span", { class: "pending-name", text: route.label }),
-                el("span", { class: "text-muted text-sm", text: `Specs ${route.specs}` })
-            ])))
         ]);
     }
 

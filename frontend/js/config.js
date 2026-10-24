@@ -51,7 +51,21 @@ export const CONFIG = {
         // ---- Recordatorios de citas (S5, S15) ----
         // GET  /api/recordatorios?estado=&idCita=  -> bitacora completa
         // POST /api/recordatorios/procesar        -> despacho manual de vencidos
-        RECORDATORIOS: `${API}/recordatorios`
+        RECORDATORIOS: `${API}/recordatorios`,
+
+        // ---- Administracion de usuarios, roles y permisos (S18, S20) ----
+        // GET  /api/usuarios?rol=&estado=&q=  -> listado; rol=DENTISTA alimenta la agenda
+        USUARIOS: `${API}/usuarios`,
+        ROLES: `${API}/roles`,
+        PERMISOS: `${API}/permisos`,
+
+        // ---- Auditoria (S19) ----
+        // GET /api/auditoria?desde=&hasta=&accion=&usuario=&pagina=
+        AUDITORIA: `${API}/auditoria`,
+
+        // ---- Reportes y estadisticas (S21) ----
+        // GET /api/reportes/{ingresos|produccion|ocupacion}?desde=&hasta=
+        REPORTES: `${API}/reportes`
     },
 
     /**
@@ -96,7 +110,10 @@ export const CONFIG = {
         FACTURA_EMITIR: "OP_FACTURA_EMITIR",
         PAGO_REGISTRAR: "OP_PAGO_REGISTRAR",
         RECORDATORIO_VER: "OP_RECORDATORIO_VER",
-        RECORDATORIO_ENVIAR: "OP_RECORDATORIO_ENVIAR"
+        RECORDATORIO_ENVIAR: "OP_RECORDATORIO_ENVIAR",
+        USUARIOS_ADMIN: "OP_USUARIOS_ADMIN",
+        AUDITORIA_VER: "OP_AUDITORIA_VER",
+        REPORTE_VER: "OP_REPORTE_VER"
     },
 
     /** Estados canonicos del schema clinico (cat_estado_cita / factura / notificacion). */
@@ -150,4 +167,24 @@ export function facturaPagosUrl(id) {
 /** Despacho manual de los recordatorios vencidos (S5, S15). */
 export function recordatoriosProcesarUrl() {
     return `${CONFIG.ENDPOINTS.RECORDATORIOS}/procesar`;
+}
+
+/** Detalle de un usuario para el panel de administracion (S18). */
+export function usuarioUrl(id) {
+    return apiUrl(CONFIG.ENDPOINTS.USUARIOS, id);
+}
+
+/** Listado de odontologos activos para el selector de la agenda (S20). */
+export function odontologosUrl() {
+    return apiQuery(CONFIG.ENDPOINTS.USUARIOS, { rol: "DENTISTA" });
+}
+
+/** Detalle de un rol con su matriz de permisos (S18). */
+export function rolUrl(id) {
+    return apiUrl(CONFIG.ENDPOINTS.ROLES, id);
+}
+
+/** Uno de los tres reportes de solo lectura (S21). */
+export function reporteUrl(nombre, params = {}) {
+    return apiQuery(apiUrl(CONFIG.ENDPOINTS.REPORTES, nombre), params);
 }

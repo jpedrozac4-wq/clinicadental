@@ -22,6 +22,7 @@
    - PATCH /api/citas/{id}/reprogramar
    - PATCH /api/citas/{id}/cancelar
    - GET   /api/pacientes, GET /api/tratamientos (catalogos del alta)
+   - GET   /api/usuarios?rol=DENTISTA via DentistaService (odontologos activos, S20)
    - POST  /api/tratamientos-realizados (via RealizadoForm)
    El historial de recordatorios de una cita no se pide aca: la fila solo enlaza
    a #/recordatorios?idCita=<id>, que es la pantalla que lo consulta (S5).
@@ -189,7 +190,18 @@ export class AgendaView {
                 placeholder: "Motivo de la consulta (opcional)"
             })
         };
-        this.avisoFormulario = el("p", { class: "field-hint", hidden: true });
+        this.avisoOdontologosTexto = el("p", { class: "mb-0" });
+        this.avisoOdontologos = el("div", { class: "alert-box info", id: "aviso-odontologos-agenda", hidden: true }, [
+            this.avisoOdontologosTexto,
+            AuthService.can(CONFIG.PERMISSIONS.USUARIOS_ADMIN)
+                ? el("a", {
+                    class: "btn btn-sm btn-outline mt-1",
+                    id: "link-cargar-odontologos",
+                    href: "#/usuarios",
+                    text: "Cargar odontólogos en Usuarios y roles"
+                })
+                : null
+        ]);
 
         this.formulario = el("form", {
             id: "form-cita",
@@ -206,7 +218,7 @@ export class AgendaView {
                 formField("Fecha y hora de inicio", this.campos.fechaHoraInicio, { required: true })
             ]),
             formField("Motivo", this.campos.motivo, { hint: "Opcional, máximo 200 caracteres." }),
-            this.avisoFormulario,
+            this.avisoOdontologos,
             this.errorFormulario,
             el("div", { class: "form-actions" }, [
                 el("button", {
@@ -426,7 +438,7 @@ export class AgendaView {
 
     async abrirFormulario() {
         this.errorFormulario.hidden = true;
-        this.avisoFormulario.hidden = true;
+        this.avisoOdontologos.hidden = true;
         this.panelFormulario.hidden = false;
         this.panelFormulario.scrollIntoView({ behavior: "smooth", block: "nearest" });
         this.campos.idPaciente.focus();
@@ -473,16 +485,18 @@ export class AgendaView {
         })));
 
         if (!dentistas.length) {
-            llenarSelect(this.campos.idDentista, "Sin odontólogos disponibles", []);
-            this.avisoFormulario.textContent =
-                "El backend no expone el listado de usuarios: los odontólogos se deducen de las citas ya registradas.";
-            this.avisoFormulario.hidden = false;
+            llenarSelect(this.campos.idDentista, "Sin odontólogos activos", []);
+            // S20: el catalogo sale del padron de usuarios, no de las citas ya cargadas.
+            this.avisoOdontologosTexto.textContent = AuthService.can(CONFIG.PERMISSIONS.USUARIOS_ADMIN)
+                ? "No hay odontólogos activos cargados: el selector se alimenta de los usuarios con rol Odontólogo. Creá uno en Usuarios y roles para poder programar citas."
+                : "No hay odontólogos activos cargados: el selector se alimenta de los usuarios con rol Odontólogo. Pedile a un administrador que cree uno para poder programar citas.";
+            this.avisoOdontologos.hidden = false;
         } else {
             llenarSelect(this.campos.idDentista, "Seleccioná un odontólogo", dentistas.map(dentista => ({
                 value: String(dentista.id),
                 label: dentista.nombre
             })));
-            this.avisoFormulario.hidden = true;
+            this.avisoOdontologos.hidden = true;
         }
     }
 

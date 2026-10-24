@@ -13,7 +13,8 @@
    Endpoints consumidos:
    - GET  /api/pacientes                (solo si no viene un paciente fijo)
    - GET  /api/tratamientos
-   - GET  /api/citas?desde&hasta        (odontologos y citas del paciente)
+   - GET  /api/usuarios?rol=DENTISTA   (odontologos activos, via DentistaService)
+   - GET  /api/citas?desde&hasta        (citas del paciente)
    - POST /api/tratamientos-realizados  (detalleProcedimiento obligatorio)
    ============================================================================ */
 import { CitaService } from "../services/cita-service.js";
@@ -186,8 +187,8 @@ export class RealizadoForm {
         if (this.catalogos) return this.catalogos;
 
         // Pacientes y tratamientos son imprescindibles; el catalogo de
-        // odontologos se deriva de la agenda y puede llegar vacio o fallar sin
-        // que eso impida mostrar el formulario.
+        // odontologos sale del padron de usuarios (S20) y puede llegar vacio o
+        // fallar sin que eso impida mostrar el formulario.
         const [pacientes, tratamientos, dentistas] = await Promise.all([
             PacienteService.listar(),
             TratamientoService.listar(),
@@ -227,9 +228,9 @@ export class RealizadoForm {
         const opciones = dentistas.map(item => ({ value: String(item.id), label: item.nombre }));
 
         if (!dentistas.length) {
-            llenarSelect(this.dentistaSelect, "Sin odontólogos disponibles", []);
+            llenarSelect(this.dentistaSelect, "Sin odontólogos activos", []);
             this.avisoDentistas.textContent =
-                "El backend todavía no expone un listado de usuarios: el catálogo de odontólogos se deduce de las citas existentes. Programá una cita para habilitarlo.";
+                "No hay odontólogos activos cargados. El catálogo sale del padrón de usuarios: creá un usuario con rol Odontólogo en Usuarios y roles para habilitar el selector.";
             this.avisoDentistas.hidden = false;
         } else {
             llenarSelect(this.dentistaSelect, "Seleccioná un odontólogo", opciones);

@@ -1,46 +1,39 @@
 /* ============================================================================
-   SERVICIO DE ODONTOLOGOS (DERIVADO DE LA AGENDA)
+   SERVICIO DE ODONTOLOGOS (S20)
    ----------------------------------------------------------------------------
-   El backend NO expone un endpoint que liste los usuarios con rol DENTISTA
-   (las rutas /api/usuarios/** estan declaradas en SecurityConfig pero todavia
-   no hay controlador). CitaResponse si publica, por cada cita, el id y el
-   nombre completo del dentista asignado.
+   El catalogo de odontologos es el padron real de usuarios: GET
+   /api/usuarios?rol=DENTISTA devuelve los odontologos ACTIVOS con `id` y
+   `nombre`. Antes de S20 este servicio derivaba la lista de las citas ya
+   registradas, de modo que una clinica sin agenda no podia programar su primera
+   cita; ahora la fuente es el padron y una base limpia devuelve [].
 
-   Mientras falte ese endpoint, este servicio deriva el catalogo de odontologos
-   de los datos reales de la agenda: pide un rango amplio de citas y descarta
-   duplicados. Si la clinica todavia no tiene citas, la lista queda vacia y el
-   formulario lo informa en vez de inventar ids.
+   Interfaz publica (la consumen agenda-module.js y realizado-form.js):
+     DentistaService.listar() -> [{ id, nombre }] ordenado por nombre.
+
+   El tipo de `id` se mantiene numerico, igual que `idDentista` en las citas, y
+   los consumidores lo comparan con String(...) como antes.
+
+   La vista que administra el padron es #/usuarios: crear un usuario con rol
+   Odontologo es lo que habilita el selector de la agenda.
    ============================================================================ */
-import { CitaService } from "./cita-service.js";
-
-/** Rango de barrido: dos anios atras y dos adelante cubre toda agenda real. */
-const DIAS_BARRIDO = 730;
+import { UsuarioService } from "./usuario-service.js";
 
 export class DentistaService {
 
-    /** Lista de odontologos { id, nombre } deducida de las citas existentes. */
+    /** Odontologos activos { id, nombre }, ordenados alfabeticamente. */
     static async listar() {
-        const citas = await CitaService.listar({
-            desde: instanteDesplazado(-DIAS_BARRIDO),
-            hasta: instanteDesplazado(DIAS_BARRIDO)
-        });
+        const usuarios = await UsuarioService.odontologos();
 
         const porId = new Map();
-        citas.forEach(cita => {
-            if (!cita.idDentista || porId.has(cita.idDentista)) return;
-            porId.set(cita.idDentista, {
-                id: cita.idDentista,
-                nombre: cita.dentista || `Odontólogo ${cita.idDentista}`
+        for (const usuario of usuarios) {
+            const id = Number(usuario.id);
+            if (!Number.isInteger(id) || porId.has(id)) continue;
+            porId.set(id, {
+                id,
+                nombre: usuario.nombre || usuario.fullName || `Odontólogo ${id}`
             });
-        });
+        }
 
         return [...porId.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     }
-}
-
-function instanteDesplazado(dias) {
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + dias);
-    fecha.setMilliseconds(0);
-    return fecha.toISOString();
 }

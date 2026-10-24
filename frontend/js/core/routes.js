@@ -91,6 +91,36 @@ export const ROUTES = [
         exportName: "RecordatoriosView"
     },
     {
+        id: "reportes",
+        path: "/reportes",
+        label: "Reportes",
+        group: "Administración",
+        icon: "▥",
+        permissions: [PERMISSIONS.REPORTE_VER],
+        loader: () => import("../modules/reportes-module.js"),
+        exportName: "ReportesView"
+    },
+    {
+        id: "usuarios",
+        path: "/usuarios",
+        label: "Usuarios y roles",
+        group: "Administración",
+        icon: "◍",
+        permissions: [PERMISSIONS.USUARIOS_ADMIN],
+        loader: () => import("../modules/usuarios-module.js"),
+        exportName: "UsuariosView"
+    },
+    {
+        id: "auditoria",
+        path: "/auditoria",
+        label: "Auditoría",
+        group: "Administración",
+        icon: "▣",
+        permissions: [PERMISSIONS.AUDITORIA_VER],
+        loader: () => import("../modules/auditoria-module.js"),
+        exportName: "AuditoriaView"
+    },
+    {
         id: "cuenta",
         path: "/cuenta",
         label: "Mi cuenta",
@@ -107,9 +137,10 @@ export const ROUTES = [
  * Rutas reservadas para entregas futuras: el sidebar y el router las agrupan y
  * filtran igual que las de ROUTES, pero no se navegan hasta que se muevan.
  *
- * Hoy la lista esta vacia: la bitacora de recordatorios (S5, S15) ya se entrego
- * y vive en ROUTES. El mecanismo se conserva porque lo consumen el dashboard
- * ("modulos en preparacion") y es el punto documentado para la proxima pantalla.
+ * S22 dejo la lista vacia: los nueve modulos estan entregados y vinculados
+ * (panel, pacientes, agenda, tratamientos, facturacion, recordatorios,
+ * reportes, usuarios y auditoria). El mecanismo se conserva porque lo consume
+ * el dashboard y es el punto documentado para la proxima pantalla.
  */
 export const RUTAS_RESERVADAS = [];
 
