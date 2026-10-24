@@ -16,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Recordatorios de citas proximas (S5, S15).
@@ -150,6 +151,45 @@ public class RecordatorioService {
         return notificaciones.findByCitaIdOrderByFechaObjetivoDesc(idCita).stream()
             .map(RecordatorioResponse::desde)
             .toList();
+    }
+
+    /**
+     * Bitacora completa de recordatorios para la pantalla de recordatorios (S5, S15).
+     *
+     * <p>Ordena por fecha objetivo descendente, es decir, el recordatorio mas reciente primero. Los
+     * filtros son opcionales: sin {@code estado} ni {@code idCita} se devuelve la bitacora entera.
+     * Un {@code idCita} sin recordatorios produce una lista vacia, porque el filtro no valida la
+     * existencia de la cita: asi la pantalla puede consultar cualquier cita desde la agenda.
+     *
+     * <p>El {@code estado} se compara contra el catalogo {@code cat_estado_notificacion} y se acepta
+     * sin distinguir mayusculas ni espacios sobrantes. Un codigo que no existe en el catalogo se
+     * rechaza con {@code 400} en lugar de devolver una lista vacia: un filtro mal escrito no debe
+     * parecer una bitacora sin movimientos.
+     *
+     * @param estado  codigo del catalogo ({@code PENDIENTE}, {@code ENVIADA}, {@code FALLIDA},
+     *                {@code SIMULADA} o {@code CANCELADA}); {@code null} o en blanco no filtra
+     * @param idCita  cita cuyos recordatorios se quieren ver; {@code null} no filtra
+     * @return las filas de la bitacora, de la fecha objetivo mas reciente a la mas antigua
+     */
+    @Transactional(readOnly = true)
+    public List<RecordatorioResponse> bitacora(String estado, Integer idCita) {
+        String codigo = codigoDeEstado(estado);
+        return notificaciones.bitacora(codigo, idCita).stream()
+            .map(RecordatorioResponse::desde)
+            .toList();
+    }
+
+    /** Normaliza el filtro y lo valida contra el catalogo de estados de notificacion. */
+    private String codigoDeEstado(String estado) {
+        if (estado == null || estado.isBlank()) {
+            return null;
+        }
+        String codigo = estado.trim().toUpperCase(Locale.ROOT);
+        if (estados.findByCode(codigo).isEmpty()) {
+            throw new ClinicaBusinessException(HttpStatus.BAD_REQUEST,
+                "Estado de recordatorio desconocido: " + codigo);
+        }
+        return codigo;
     }
 
     private void despachar(NotificacionCita recordatorio, OffsetDateTime ahora) {

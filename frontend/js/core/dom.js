@@ -17,27 +17,27 @@ import { CONFIG } from "../config.js";
 export function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
 
-    Object.entries(attrs).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === false) return;
+    for (const [key, value] of Object.entries(attrs)) {
+        if (value === undefined || value === null || value === false) continue;
 
         if (key === "class") {
             node.className = value;
         } else if (key === "text") {
             node.textContent = value;
         } else if (key === "dataset") {
-            Object.entries(value).forEach(([dataKey, dataValue]) => {
+            for (const [dataKey, dataValue] of Object.entries(value)) {
                 node.dataset[dataKey] = dataValue;
-            });
+            }
         } else if (key === "on") {
-            Object.entries(value).forEach(([eventName, handler]) => {
+            for (const [eventName, handler] of Object.entries(value)) {
                 node.addEventListener(eventName, handler);
-            });
+            }
         } else if (value === true) {
             node.setAttribute(key, "");
         } else {
             node.setAttribute(key, value);
         }
-    });
+    }
 
     appendChildren(node, children);
     return node;
@@ -45,8 +45,10 @@ export function el(tag, attrs = {}, children = []) {
 
 export function appendChildren(node, children) {
     const list = Array.isArray(children) ? children : [children];
-    list.filter(child => child !== null && child !== undefined && child !== false)
-        .forEach(child => node.append(child instanceof Node ? child : document.createTextNode(String(child))));
+    for (const child of list) {
+        if (child === null || child === undefined || child === false) continue;
+        node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
     return node;
 }
 
@@ -136,20 +138,19 @@ export function humanize(value) {
 /** Clase de badge segun el estado clinico, para semaforos consistentes. */
 export function estadoBadgeClass(estado) {
     const value = String(estado || "").toUpperCase();
-    if (["ATENDIDA", "CONFIRMADA", "PAGADA", "EMITIDA", "ACTIVO"].includes(value)) {
+    if (["ATENDIDA", "CONFIRMADA", "PAGADA", "EMITIDA", "ACTIVO", "ENVIADA"].includes(value)) {
         return "badge badge-success";
     }
     if (["PROGRAMADA", "REPROGRAMADA", "PAGO_PARCIAL", "PENDIENTE"].includes(value)) {
         return "badge badge-warning";
     }
-    if (["CANCELADA", "NO_ASISTIO", "ANULADA", "VENCIDA"].includes(value)) {
+    if (["CANCELADA", "NO_ASISTIO", "ANULADA", "VENCIDA", "FALLIDA"].includes(value)) {
         return "badge badge-danger";
     }
     return "badge badge-primary";
 }
 
-/** Badge de estado listo para insertar en una tabla o ficha. */
-export function estadoBadge(estado) {
+/** Badge de estado listo para insertar en una tabla o ficha. */export function estadoBadge(estado) {
     return el("span", { class: estadoBadgeClass(estado), text: humanize(estado) });
 }
 

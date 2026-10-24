@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -78,6 +79,45 @@ class RecordatorioControllerTest {
             .andExpect(jsonPath("$[0].canal").value(CanalNotificacion.EMAIL))
             .andExpect(jsonPath("$[0].mensaje").value(
                 "Recordatorio: su cita de Limpieza dental en Clínica Dental es el 22/10/2026 09:00."));
+    }
+
+    @Test
+    void laBitacoraSeConsultaSinFiltros() throws Exception {
+        when(service.bitacora(null, null)).thenReturn(List.of(
+            recordatorio(EstadoNotificacion.PENDIENTE, null, null)));
+
+        mvc.perform(get("/api/recordatorios"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(7))
+            .andExpect(jsonPath("$[0].idCita").value(50))
+            .andExpect(jsonPath("$[0].estado").value(EstadoNotificacion.PENDIENTE));
+    }
+
+    @Test
+    void laBitacoraAceptaLosFiltrosDeEstadoYDeCita() throws Exception {
+        when(service.bitacora(EstadoNotificacion.ENVIADA, 50)).thenReturn(List.of(
+            recordatorio(EstadoNotificacion.ENVIADA, OBJETIVO, null)));
+
+        mvc.perform(get("/api/recordatorios")
+                .param("estado", EstadoNotificacion.ENVIADA)
+                .param("idCita", "50"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].estado").value(EstadoNotificacion.ENVIADA))
+            .andExpect(jsonPath("$[0].idCita").value(50));
+
+        verify(service).bitacora(EstadoNotificacion.ENVIADA, 50);
+    }
+
+    @Test
+    void unEstadoDesconocidoEnLaBitacoraDevuelve400ConMensajeLegible() throws Exception {
+        when(service.bitacora("NO_EXISTE", null)).thenThrow(
+            new ClinicaBusinessException(HttpStatus.BAD_REQUEST,
+                "Estado de recordatorio desconocido: NO_EXISTE"));
+
+        mvc.perform(get("/api/recordatorios").param("estado", "NO_EXISTE"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value("ERROR"))
+            .andExpect(jsonPath("$.message").value("Estado de recordatorio desconocido: NO_EXISTE"));
     }
 
     @Test

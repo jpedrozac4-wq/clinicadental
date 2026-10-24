@@ -22,6 +22,20 @@ public class RecordatorioController {
         return service.historial(id);
     }
 
+    /**
+     * Bitacora completa de recordatorios, del mas reciente al mas antiguo (S5, S15).
+     *
+     * <p>Los filtros son opcionales y combinables. Un {@code estado} que no existe en el catalogo
+     * devuelve {@code 400} en lugar de una lista vacia; un {@code idCita} sin recordatorios devuelve
+     * una lista vacia.
+     */
+    @GetMapping("/recordatorios")
+    public List<RecordatorioResponse> bitacora(
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) Integer idCita) {
+        return service.bitacora(estado, idCita);
+    }
+
     /** Fuerza un despacho de los recordatorios vencidos y devuelve la bitacora procesada (S5). */
     @PostMapping("/recordatorios/procesar")
     public List<RecordatorioResponse> procesar() {

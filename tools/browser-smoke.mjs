@@ -3,12 +3,13 @@
    ----------------------------------------------------------------------------
    Drives a headless Chrome against the running stack and walks the delivered
    clinic application end to end: login + JWT persistence, dashboard KPIs,
-   patients (create / search / history / edit / logical delete), treatment
-   catalog (create / edit / duplicate 409), agenda (schedule / reschedule /
-   cancel), performed treatment from the patient history, and billing
-   (emit / partial payment / final payment / PDF). It records console errors,
-   failed requests and screenshots per step, writes report.json and exits 1 on
-   a fatal error.
+   reminder log (table, estado filter, permission-gated dispatch and the per
+   appointment history reached from the agenda), patients (create / search /
+   history / edit / logical delete), treatment catalog (create / edit / duplicate
+   409), agenda (schedule / reschedule / cancel), performed treatment from the
+   patient history, and billing (emit / partial payment / final payment / PDF). It
+   records console errors, failed requests and screenshots per step, writes
+   report.json and exits 1 on a fatal error.
 
    Every DOM hook used here is listed in UI_CONTRACT below with the frontend
    file that defines it. The static preflight verifies those hooks still exist
@@ -71,9 +72,16 @@ const UI_CONTRACT = [
     { selector: ".sidebar-link[data-route-id]", file: "frontend/js/core/shell.js", marker: 'class: "sidebar-link"' },
     { selector: ".sidebar-link[data-route-id]", file: "frontend/js/core/shell.js", marker: "dataset: { routeId: route.id }" },
 
-    // --- Reserved route (must stay out of the menu): js/core/routes.js ---
-    { selector: "[data-route-id=\"recordatorios\"] (reserved, must NOT exist)", file: "frontend/js/core/routes.js", marker: 'id: "recordatorios"' },
-    { selector: "RUTAS_RESERVADAS", file: "frontend/js/core/routes.js", marker: "export const RUTAS_RESERVADAS" },
+    // --- Recordatorios (S5, S15): routes.js + recordatorios-module.js ---
+    { selector: "[data-route-id=\"recordatorios\"]", file: "frontend/js/core/routes.js", marker: 'id: "recordatorios"' },
+    { selector: "RUTAS_RESERVADAS (mecanismo de rutas futuras)", file: "frontend/js/core/routes.js", marker: "export const RUTAS_RESERVADAS" },
+    { selector: "#lista-recordatorios", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "lista-recordatorios"' },
+    { selector: "#contador-recordatorios", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "contador-recordatorios"' },
+    { selector: "#filtro-recordatorio-estado", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "filtro-recordatorio-estado"' },
+    { selector: "#btn-despachar-recordatorios", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "btn-despachar-recordatorios"' },
+    { selector: "#recordatorio-filtro-cita", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "recordatorio-filtro-cita"' },
+    { selector: "#btn-quitar-filtro-cita", file: "frontend/js/modules/recordatorios-module.js", marker: 'id: "btn-quitar-filtro-cita"' },
+    { selector: "#lista-citas a[href*=\"recordatorios\"]", file: "frontend/js/modules/agenda-module.js", marker: "href: `#/recordatorios?idCita=${cita.id}`" },
 
     // --- Shared presentation primitives: js/core/dom.js ---
     { selector: ".kpi-stat-card", file: "frontend/js/core/dom.js", marker: 'class: "kpi-stat-card"' },
@@ -564,6 +572,31 @@ async function waitToast(cdp, needle, timeoutMs = 15000) {
     throw new Error(`No apareció el aviso esperado en pantalla: "${needle}".`);
 }
 
+/** Variante por patrón: sirve cuando el aviso depende de los datos (procesados = 0 o N). */
+async function waitAnyToast(cdp, pattern, timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const toasts = await cdp.evaluate(
+            "return Array.from(document.querySelectorAll('#toast-container .toast')).map(t => t.textContent);"
+        );
+        const hit = (toasts || []).find((text) => pattern.test(text));
+        if (hit) return hit;
+        await sleep(120);
+    }
+    throw new Error(`No apareció ningún aviso que coincida con ${pattern}.`);
+}
+
+/** Espera a que el log de red registre una llamada con ese método/URL/estado. */
+async function waitCall(cdp, { method = null, url = "", status = null }, timeoutMs = 30000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const hits = findCalls(cdp, { method, url, status });
+        if (hits.length) return hits;
+        await sleep(120);
+    }
+    throw new Error(`No se registró ${method || "la"} ${url}${status ? ` -> ${status}` : ""}.`);
+}
+
 /**
  * Waits for the outcome of a form submit: the success toast or the inline
  * error box the module renders. Used to retry on agenda conflicts (409).
@@ -912,7 +945,8 @@ try {
     });
     assert(login.role === "Administrador", `El rol mostrado no es Administrador: "${login.role}".`);
     assert(
-        login.menu.includes("pacientes") && login.menu.includes("facturacion"),
+        login.menu.includes("pacientes") && login.menu.includes("facturacion")
+            && login.menu.includes("recordatorios"),
         `El menú del administrador no incluye los módulos esperados: ${login.menu.join(", ")}.`
     );
 
@@ -978,35 +1012,165 @@ try {
         };
     }, { strictConsole: true });
 
-    /* ---------------- 8. Recordatorios is still a reserved route ---------------- */
-    await step(cdp, "recordatorios-reservado", async () => {
+    /* ---------------- 8. Recordatorios: bitacora, filtro por estado y despacho ---------------- */
+    await step(cdp, "recordatorios-bitacora", async () => {
         assert(
-            await countOf(cdp, '[data-route-id="recordatorios"]') === 0,
-            "La ruta reservada de recordatorios apareció en el menú lateral."
+            await countOf(cdp, '[data-route-id="recordatorios"]') === 1,
+            "El sidebar no muestra Recordatorios para un perfil con OP_RECORDATORIO_VER."
         );
-        const pending = await textOf(cdp, ".pending-list");
-        assert(/recordatorios/i.test(pending), "El panel no anuncia recordatorios como módulo en preparación.");
 
+        await openModule(cdp, "recordatorios", "Recordatorios");
+        await cdp.waitFor(
+            "return document.querySelectorAll('#lista-recordatorios tbody tr').length > 0;",
+            20000,
+            "bitácora de recordatorios con datos de la semilla"
+        );
+        assert(
+            await countOf(cdp, "#lista-recordatorios .state-box-error") === 0,
+            "La bitácora de recordatorios muestra un estado de error."
+        );
+
+        const headers = await cdp.evaluate(
+            "return Array.from(document.querySelectorAll('#lista-recordatorios thead th')).map(th => th.textContent.trim());"
+        );
+        const esperados = ["Canal", "Estado", "Cita", "Fecha de la cita", "Destino", "Fecha objetivo", "Enviado en", "Error"];
+        assert(
+            JSON.stringify(headers) === JSON.stringify(esperados),
+            `Las columnas de la bitácora no son las esperadas: ${headers.join(" | ")}.`
+        );
+
+        const todas = await rowsOf(cdp, "#lista-recordatorios");
+        todas.forEach((row, index) => {
+            assert(row.cells[0] && row.cells[0].length > 0, `La fila ${index + 1} no muestra el canal.`);
+            assert(row.badges.length === 1, `La fila ${index + 1} no muestra un badge de estado único.`);
+            assert(/^#\d+$/.test(row.cells[2]), `La fila ${index + 1} no identifica la cita: "${row.cells[2]}".`);
+            assert(row.cells[3] && row.cells[3] !== "—", `La fila ${index + 1} no muestra la fecha de la cita.`);
+            assert(row.cells[4] && row.cells[4] !== "—", `La fila ${index + 1} no muestra el destino del aviso.`);
+        });
+        assert(
+            findCalls(cdp, { method: "GET", url: "/api/recordatorios", status: 200 }).length > 0,
+            "La pantalla de recordatorios no consultó GET /api/recordatorios."
+        );
+
+        // Filtro por estado (en el cliente): las filas visibles tienen que ser
+        // exactamente las del estado elegido y el contador debe reflejarlo.
+        const porEstado = {};
+        todas.forEach((row) => {
+            const badge = row.badges[0];
+            porEstado[badge] = (porEstado[badge] || 0) + 1;
+        });
+        const opciones = await cdp.evaluate(`
+            const node = document.querySelector('#filtro-recordatorio-estado');
+            return node ? Array.from(node.options).map(o => ({ value: o.value, label: o.textContent.trim() })) : [];
+        `);
+        const conOpcion = Object.entries(porEstado)
+            .filter(([label]) => opciones.some((option) => option.value && option.label === label));
+        assert(
+            conOpcion.length > 0,
+            `Los estados de la bitácora no coinciden con el filtro: ${Object.keys(porEstado).join(", ")}.`
+        );
+        const [estadoLabel, estadoFilas] = conOpcion.find(([, filas]) => filas < todas.length) || conOpcion[0];
+        const estadoCode = opciones.find((option) => option.label === estadoLabel).value;
+
+        await setValue(cdp, "#filtro-recordatorio-estado", estadoCode);
+        await cdp.waitFor(
+            `return document.querySelectorAll('#lista-recordatorios tbody tr').length === ${estadoFilas};`,
+            15000,
+            `filas filtradas por el estado ${estadoLabel}`
+        );
+        const filtradas = await rowsOf(cdp, "#lista-recordatorios");
+        assert(
+            filtradas.length === estadoFilas,
+            `El filtro ${estadoLabel} muestra ${filtradas.length} fila(s) en lugar de ${estadoFilas}.`
+        );
+        assert(
+            filtradas.every((row) => row.badges[0] === estadoLabel),
+            `El filtro ${estadoLabel} dejó filas de otro estado: ${filtradas.map((row) => row.badges[0]).join(", ")}.`
+        );
+        const contadorFiltrado = await textOf(cdp, "#contador-recordatorios");
+        assert(
+            contadorFiltrado.startsWith(`${estadoFilas} de ${todas.length}`),
+            `El contador no refleja el filtro: "${contadorFiltrado}".`
+        );
+
+        await setValue(cdp, "#filtro-recordatorio-estado", "");
+        await cdp.waitFor(
+            `return document.querySelectorAll('#lista-recordatorios tbody tr').length === ${todas.length};`,
+            15000,
+            "bitácora completa tras limpiar el filtro"
+        );
+
+        // El despacho existe solo con OP_RECORDATORIO_ENVIAR: se comprueba recortando
+        // el perfil guardado y se restaura de inmediato, sin re-login.
+        const sessionKey = "clinica.auth.user";
+        const rawSession = await cdp.evaluate(`return localStorage.getItem(${sel(sessionKey)});`);
+        assert(rawSession, `No hay perfil de sesión guardado en "${sessionKey}".`);
+        const session = JSON.parse(rawSession);
+        assert(
+            (session.permissions || []).includes("OP_RECORDATORIO_ENVIAR"),
+            "El perfil administrador no trae OP_RECORDATORIO_ENVIAR: los permisos sembrados cambiaron."
+        );
+        assert(
+            await countOf(cdp, "#btn-despachar-recordatorios") === 1,
+            "El administrador no ve la acción 'Despachar pendientes ahora'."
+        );
+
+        await cdp.evaluate(`
+            const key = ${sel(sessionKey)};
+            const perfil = JSON.parse(localStorage.getItem(key));
+            perfil.permissions = (perfil.permissions || []).filter(p => p !== "OP_RECORDATORIO_ENVIAR");
+            perfil.authorities = (perfil.authorities || []).filter(a => a !== "OP_RECORDATORIO_ENVIAR");
+            localStorage.setItem(key, JSON.stringify(perfil));
+            return true;
+        `);
+        await cdp.evaluate("window.location.hash = '#/recordatorios?perfil=sin-permiso'; return true;");
+        await cdp.waitFor(
+            "return document.querySelectorAll('#lista-recordatorios tbody tr').length > 0;",
+            20000,
+            "bitácora remontada sin el permiso de despacho"
+        );
+        const sinPermiso = await countOf(cdp, "#btn-despachar-recordatorios");
+        assert(
+            sinPermiso === 0,
+            "La acción de despacho se mostró con un perfil sin OP_RECORDATORIO_ENVIAR."
+        );
+
+        await cdp.evaluate(`localStorage.setItem(${sel(sessionKey)}, ${JSON.stringify(rawSession)}); return true;`);
         await cdp.evaluate("window.location.hash = '#/recordatorios'; return true;");
         await cdp.waitFor(
-            "return (document.querySelector('#app-view h2')?.textContent || '').trim() === 'Ruta no encontrada';",
-            15000,
-            "fallback de ruta no encontrada"
-        );
-        const fallback = await textOf(cdp, "#app-view");
-
-        await cdp.evaluate("window.location.hash = '#/dashboard'; return true;");
-        await cdp.waitFor(
-            "return (document.querySelector('#app-view .page-header h2')?.textContent || '').trim().startsWith('Hola');",
+            "return document.querySelectorAll('#lista-recordatorios tbody tr').length > 0;",
             20000,
-            "regreso al panel general"
+            "bitácora remontada con el perfil completo"
+        );
+        assert(
+            await countOf(cdp, "#btn-despachar-recordatorios") === 1,
+            "El perfil administrador no recuperó la acción de despacho."
+        );
+
+        // Despacho real: POST /api/recordatorios/procesar -> aviso -> recarga.
+        const getsAntes = findCalls(cdp, { method: "GET", url: "/api/recordatorios" }).length;
+        await clearToasts(cdp);
+        await click(cdp, "#btn-despachar-recordatorios");
+        await waitCall(cdp, { method: "POST", url: "/api/recordatorios/procesar", status: 200 }, 40000);
+        const aviso = await waitAnyToast(cdp, /procesado|vencidos/i);
+        await cdp.waitFor(
+            "return document.querySelectorAll('#lista-recordatorios tbody tr').length > 0;",
+            25000,
+            "bitácora recargada tras el despacho"
+        );
+        assert(
+            findCalls(cdp, { method: "GET", url: "/api/recordatorios" }).length > getsAntes,
+            "El despacho no recargó la bitácora (no hubo un GET /api/recordatorios nuevo)."
         );
 
         return {
-            menuHasRecordatorios: false,
-            pendingNotice: pending,
-            fallbackTitle: "Ruta no encontrada",
-            fallbackMentionsMissingRoute: fallback.includes("no existe en el sistema")
+            columnas: headers,
+            filasTotales: todas.length,
+            estados: porEstado,
+            estadoFiltrado: { codigo: estadoCode, etiqueta: estadoLabel, filas: estadoFilas },
+            contadorFiltrado,
+            despachoOculto: sinPermiso === 0,
+            despacho: aviso
         };
     });
 
@@ -1426,6 +1590,63 @@ try {
             estado: "Cancelada",
             toast,
             patchOk: findCalls(cdp, { method: "PATCH", url: "/cancelar", status: 204 }).length > 0
+        };
+    });
+
+    /* ---------------- 5d. S5: historial de recordatorios de la cita desde la agenda ---------------- */
+    const recordatoriosDeCita = await step(cdp, "recordatorios-desde-agenda", async () => {
+        await clickInRow(cdp, "#lista-citas", CITA_MOTIVO, 'a[href*="recordatorios"]');
+        await cdp.waitFor(
+            "return /^#\\/recordatorios\\?idCita=\\d+$/.test(window.location.hash);",
+            20000,
+            "ruta de recordatorios filtrada por la cita"
+        );
+        const hash = await cdp.evaluate("return window.location.hash;");
+        const idCita = hash.match(/idCita=(\d+)/)?.[1] || null;
+        assert(idCita, `No se pudo leer idCita del hash "${hash}".`);
+
+        await cdp.waitFor(
+            "return document.querySelectorAll('#lista-recordatorios tbody tr').length > 0;",
+            20000,
+            "historial de recordatorios de la cita"
+        );
+        const aviso = await textOf(cdp, "#recordatorio-filtro-cita");
+        assert(aviso.includes(`#${idCita}`), `El aviso del filtro no menciona la cita #${idCita}: "${aviso}".`);
+
+        const filas = await rowsOf(cdp, "#lista-recordatorios");
+        assert(
+            filas.every((row) => row.cells[2] === `#${idCita}`),
+            `La bitácora filtrada mezcla otras citas: ${filas.map((row) => row.cells[2]).join(", ")}.`
+        );
+        assert(
+            findCalls(cdp, { method: "GET", url: "/api/recordatorios", status: 200 }).length > 0,
+            "El historial filtrado por cita no llegó a GET /api/recordatorios."
+        );
+        assert(
+            !(await isVisible(cdp, "#btn-despachar-recordatorios")) === false,
+            "La acción de despacho desapareció al entrar con el filtro por cita."
+        );
+
+        // Volver a la bitácora completa y regresar a la agenda para el resto del flujo.
+        await click(cdp, "#btn-quitar-filtro-cita");
+        await cdp.waitFor(
+            "const panel = document.querySelector('#recordatorio-filtro-cita'); return Boolean(panel) && panel.hidden;",
+            15000,
+            "bitácora completa sin el filtro de cita"
+        );
+        await openModule(cdp, "agenda", "Agenda de citas");
+        await cdp.waitFor(
+            `return (document.querySelector('#lista-citas')?.textContent || '').includes(${sel(CITA_MOTIVO)});`,
+            20000,
+            "agenda restaurada"
+        );
+
+        return {
+            idCita,
+            hash,
+            aviso,
+            filas: filas.length,
+            estados: filas.map((row) => row.badges[0])
         };
     });
 
@@ -1900,7 +2121,7 @@ try {
         "S9 facturacion": ["factura-emitir", "factura-pdf"],
         "S10 pagos": ["factura-pago-parcial", "factura-pago-total"],
         "S13/S16 panel y sesion": ["prepare-session", "login-admin", "reload-session", "dashboard"],
-        "ruta reservada": ["recordatorios-reservado"]
+        "S5/S15 recordatorios": ["recordatorios-bitacora", "recordatorios-desde-agenda"],
     };
     report.notes.push(
         "Cada selector del escenario está fichado en UI_CONTRACT (selector -> archivo) y validado por el preflight estático antes de lanzar Chrome.",

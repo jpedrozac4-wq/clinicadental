@@ -3,8 +3,10 @@
    ----------------------------------------------------------------------------
    Resumen operativo de la clinica construido solo con datos reales del backend
    disponible en esta entrega: pacientes registrados y catalogo de tratamientos.
-   Las areas de agenda, facturacion y recordatorios se anuncian como modulos en
-   preparacion, con el mismo metadato que usara el router cuando existan.
+   Las areas clinicas y administrativas (pacientes, historial, agenda, catalogo,
+   facturacion con pagos y bitacora de recordatorios) ya estan entregadas: si el
+   registro de rutas reservadas quedara con alguna entrada, esta vista anunciaria
+   el modulo como pendiente, con el mismo metadato que usara el router.
    ============================================================================ */
 import { AuthService } from "../services/auth-service.js";
 import { PacienteService } from "../services/paciente-service.js";
@@ -42,10 +44,7 @@ export class DashboardView {
         containerEl.replaceChildren(
             header,
             this.kpis(pacientes, tratamientos, { pacientesOk, tratamientosOk }),
-            el("div", { class: "grid-2" }, [
-                this.accionesRapidas(),
-                this.modulosEnPreparacion()
-            ]),
+            this.pendientesCard() || this.accionesRapidas(),
             this.pacientesRecientes(pacientes, pacientesOk),
             this.contextoSesion(session)
         );
@@ -161,23 +160,35 @@ export class DashboardView {
         ]);
     }
 
+    /**
+     * Tarjeta de accesos rapidos junto al anuncio de modulos reservados. Sin
+     * rutas reservadas (el caso de esta entrega) queda solo la de accesos.
+     */
+    pendientesCard() {
+        const reservadas = this.modulosEnPreparacion();
+        return reservadas
+            ? el("div", { class: "grid-2" }, [this.accionesRapidas(), reservadas])
+            : null;
+    }
+
+    /**
+     * Modulos que el registro de rutas reservadas anuncia como pendientes. Hoy
+     * la lista esta vacia porque la bitacora de recordatorios ya se entrego, de
+     * modo que la tarjeta no se monta; el mecanismo sigue vivo para lo que venga.
+     */
     modulosEnPreparacion() {
         const visibles = RUTAS_RESERVADAS.filter(route => AuthService.canAccess(route));
+        if (!visibles.length) return null;
+
         return el("div", { class: "card" }, [
             el("div", { class: "card-header" }, [
                 el("h2", { text: "Módulos en preparación" }),
                 el("span", { class: "badge badge-primary", text: "Próxima entrega" })
             ]),
-            el("p", {
-                class: "text-muted text-sm",
-                text: "Agenda, facturación con pagos parciales y catálogo clínico ya están operativos. Queda pendiente la bitácora de recordatorios, que el router y el menú ya reservan."
-            }),
-            visibles.length
-                ? el("ul", { class: "pending-list" }, visibles.map(route => el("li", {}, [
-                    el("span", { class: "pending-name", text: route.label }),
-                    el("span", { class: "text-muted text-sm", text: `Specs ${route.specs}` })
-                ])))
-                : el("p", { class: "text-muted text-sm", text: "No quedan módulos reservados para tu perfil." })
+            el("ul", { class: "pending-list" }, visibles.map(route => el("li", {}, [
+                el("span", { class: "pending-name", text: route.label }),
+                el("span", { class: "text-muted text-sm", text: `Specs ${route.specs}` })
+            ])))
         ]);
     }
 

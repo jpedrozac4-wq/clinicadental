@@ -14,6 +14,7 @@
    - OP_CITA_REPROGRAMAR  -> reprogramar
    - OP_CITA_CANCELAR     -> cancelar
    - OP_REALIZADO_REGISTRAR -> registrar el procedimiento (marca ATENDIDA)
+   - OP_RECORDATORIO_VER  -> abrir el historial de recordatorios de una cita (S5)
 
    Endpoints consumidos:
    - GET   /api/citas?desde=&hasta=
@@ -22,6 +23,8 @@
    - PATCH /api/citas/{id}/cancelar
    - GET   /api/pacientes, GET /api/tratamientos (catalogos del alta)
    - POST  /api/tratamientos-realizados (via RealizadoForm)
+   El historial de recordatorios de una cita no se pide aca: la fila solo enlaza
+   a #/recordatorios?idCita=<id>, que es la pantalla que lo consulta (S5).
    ============================================================================ */
 import { AuthService } from "../services/auth-service.js";
 import { CitaService } from "../services/cita-service.js";
@@ -355,6 +358,15 @@ export class AgendaView {
                     class: "btn btn-sm btn-outline",
                     href: `#/pacientes/${cita.idPaciente}/historial`,
                     text: "Historial"
+                }));
+            }
+            // S5: el historial de recordatorios de la cita queda a un clic desde la
+            // propia fila, con el filtro por cita ya aplicado en la pantalla.
+            if (AuthService.can(CONFIG.PERMISSIONS.RECORDATORIO_VER)) {
+                acciones.push(el("a", {
+                    class: "btn btn-sm btn-outline",
+                    href: `#/recordatorios?idCita=${cita.id}`,
+                    text: "Recordatorios"
                 }));
             }
 

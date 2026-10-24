@@ -48,7 +48,9 @@ export const CONFIG = {
         // ---- Facturacion y pagos (S9, S10) ----
         FACTURAS: `${API}/facturas`,
 
-        // ---- Reservado: recordatorios (S5, S15), otro modulo lo entrega ----
+        // ---- Recordatorios de citas (S5, S15) ----
+        // GET  /api/recordatorios?estado=&idCita=  -> bitacora completa
+        // POST /api/recordatorios/procesar        -> despacho manual de vencidos
         RECORDATORIOS: `${API}/recordatorios`
     },
 
@@ -93,13 +95,15 @@ export const CONFIG = {
         FACTURA_VER: "OP_FACTURA_VER",
         FACTURA_EMITIR: "OP_FACTURA_EMITIR",
         PAGO_REGISTRAR: "OP_PAGO_REGISTRAR",
-        RECORDATORIO_VER: "OP_RECORDATORIO_VER"
+        RECORDATORIO_VER: "OP_RECORDATORIO_VER",
+        RECORDATORIO_ENVIAR: "OP_RECORDATORIO_ENVIAR"
     },
 
-    /** Estados canonicos del schema clinico (cat_estado_cita / factura). */
+    /** Estados canonicos del schema clinico (cat_estado_cita / factura / notificacion). */
     ESTADOS: {
         CITA: ["PROGRAMADA", "CONFIRMADA", "REPROGRAMADA", "ATENDIDA", "CANCELADA", "NO_ASISTIO"],
-        FACTURA: ["EMITIDA", "PAGO_PARCIAL", "PAGADA", "ANULADA"]
+        FACTURA: ["EMITIDA", "PAGO_PARCIAL", "PAGADA", "ANULADA"],
+        RECORDATORIO: ["PENDIENTE", "ENVIADA", "SIMULADA", "FALLIDA", "CANCELADA"]
     }
 };
 
@@ -141,4 +145,9 @@ export function facturaPdfUrl(id) {
 /** Pagos registrados sobre una factura (S10). */
 export function facturaPagosUrl(id) {
     return `${apiUrl(CONFIG.ENDPOINTS.FACTURAS, id)}/pagos`;
+}
+
+/** Despacho manual de los recordatorios vencidos (S5, S15). */
+export function recordatoriosProcesarUrl() {
+    return `${CONFIG.ENDPOINTS.RECORDATORIOS}/procesar`;
 }

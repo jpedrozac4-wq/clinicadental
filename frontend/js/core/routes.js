@@ -81,6 +81,16 @@ export const ROUTES = [
         exportName: "FacturacionView"
     },
     {
+        id: "recordatorios",
+        path: "/recordatorios",
+        label: "Recordatorios",
+        group: "Administración",
+        icon: "◎",
+        permissions: [PERMISSIONS.RECORDATORIO_VER],
+        loader: () => import("../modules/recordatorios-module.js"),
+        exportName: "RecordatoriosView"
+    },
+    {
         id: "cuenta",
         path: "/cuenta",
         label: "Mi cuenta",
@@ -94,24 +104,14 @@ export const ROUTES = [
 ];
 
 /**
- * Rutas reservadas para la entrega de recordatorios.
- * El backend ya expone el recurso y SecurityConfig ya declara sus permisos;
- * falta el modulo del frontend. Cuando exista, se mueve la entrada a ROUTES y el
- * sidebar la agrupara sola, sin tocar el shell ni el router.
+ * Rutas reservadas para entregas futuras: el sidebar y el router las agrupan y
+ * filtran igual que las de ROUTES, pero no se navegan hasta que se muevan.
+ *
+ * Hoy la lista esta vacia: la bitacora de recordatorios (S5, S15) ya se entrego
+ * y vive en ROUTES. El mecanismo se conserva porque lo consumen el dashboard
+ * ("modulos en preparacion") y es el punto documentado para la proxima pantalla.
  */
-export const RUTAS_RESERVADAS = [
-    {
-        id: "recordatorios",
-        path: "/recordatorios",
-        label: "Recordatorios",
-        group: "Administración",
-        icon: "◎",
-        permissions: [PERMISSIONS.RECORDATORIO_VER],
-        loader: () => import("../modules/recordatorios-module.js"),
-        exportName: "RecordatoriosView",
-        specs: "S5, S15"
-    }
-];
+export const RUTAS_RESERVADAS = [];
 
 /** Agrupa las rutas accesibles por seccion del sidebar, preservando el orden. */
 export function groupedRoutes(routes) {

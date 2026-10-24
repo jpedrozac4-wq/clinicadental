@@ -329,6 +329,64 @@ class RecordatorioServiceTest {
     }
 
     @Test
+    void laBitacoraSinFiltrosDevuelveTodasLasFilas() {
+        when(notificaciones.bitacora(null, null)).thenReturn(List.of(
+            recordatorio(9, cita(51, AHORA.plusDays(2))),
+            recordatorio(7, cita(50, AHORA.plusDays(1)))));
+
+        List<RecordatorioResponse> bitacora = service.bitacora(null, null);
+
+        assertThat(bitacora).hasSize(2);
+        assertThat(bitacora.get(0).id()).isEqualTo(9);
+        assertThat(bitacora.get(1).idCita()).isEqualTo(50);
+    }
+
+    @Test
+    void laBitacoraFiltraPorEstadoNormalizadoContraElCatalogo() {
+        when(notificaciones.bitacora(EstadoNotificacion.ENVIADA, null)).thenReturn(List.of(
+            recordatorio(7, cita(50, AHORA.plusDays(1)))));
+
+        List<RecordatorioResponse> bitacora = service.bitacora(" enviada ", null);
+
+        assertThat(bitacora).hasSize(1);
+        verify(notificaciones).bitacora(EstadoNotificacion.ENVIADA, null);
+    }
+
+    @Test
+    void laBitacoraFiltraPorCita() {
+        when(notificaciones.bitacora(null, 50)).thenReturn(List.of(
+            recordatorio(7, cita(50, AHORA.plusDays(1)))));
+
+        List<RecordatorioResponse> bitacora = service.bitacora(null, 50);
+
+        assertThat(bitacora).hasSize(1);
+        assertThat(bitacora.get(0).idCita()).isEqualTo(50);
+        verify(notificaciones).bitacora(null, 50);
+    }
+
+    @Test
+    void unEstadoEnBlancoNoFiltraLaBitacora() {
+        when(notificaciones.bitacora(null, null)).thenReturn(List.of(
+            recordatorio(7, cita(50, AHORA.plusDays(1)))));
+
+        assertThat(service.bitacora("   ", null)).hasSize(1);
+
+        verify(notificaciones).bitacora(null, null);
+    }
+
+    @Test
+    void unEstadoDesconocidoEnLaBitacoraDevuelve400SinConsultarLaBitacora() {
+        when(estados.findByCode("NO_EXISTE")).thenReturn(Optional.empty());
+
+        ClinicaBusinessException ex = catchThrowableOfType(
+            () -> service.bitacora("NO_EXISTE", null), ClinicaBusinessException.class);
+
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getMessage()).isEqualTo("Estado de recordatorio desconocido: NO_EXISTE");
+        verifyNoInteractions(notificaciones);
+    }
+
+    @Test
     void elHistorialDeUnaCitaInexistenteDevuelve404() {
         when(citas.existsById(99)).thenReturn(false);
 
