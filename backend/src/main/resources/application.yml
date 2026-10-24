@@ -52,6 +52,16 @@ server:
     context-path: /
 
 clinica:
+  # Administrador inicial (S23): lo crea el backend al arrancar, y solo si no
+  # existe ningun administrador activo. Sin CLINICA_ADMIN_PASSWORD el arranque
+  # falla con un mensaje explicito, en lugar de crear una cuenta con una clave
+  # conocida. Los valores reales viven en el .env local, nunca en el repo.
+  bootstrap:
+    admin:
+      username: ${CLINICA_ADMIN_USERNAME:admin}
+      password: ${CLINICA_ADMIN_PASSWORD:}
+      email: ${CLINICA_ADMIN_EMAIL:admin@clinicaldental.com}
+      full-name: ${CLINICA_ADMIN_FULLNAME:Administrador de la Clinica}
   # Proceso programado de recordatorios (S5): cada 15 minutos por
   # defecto, con 1 minuto de gracia al arrancar la aplicacion.
   recordatorios:
