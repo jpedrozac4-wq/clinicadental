@@ -135,11 +135,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/facturas/**")
                     .hasAnyAuthority("OP_FACTURA_VER", "ROLE_ADMINISTRADOR")
 
-                // ---- Seguridad y auditoria ----
-                .requestMatchers("/api/usuarios/**")
+                // ---- Seguridad, usuarios y auditoria ----
+                .requestMatchers("/api/usuarios/**", "/api/roles/**", "/api/permisos/**")
                     .hasAnyAuthority("OP_USUARIOS_ADMIN", "ROLE_ADMINISTRADOR")
                 .requestMatchers("/api/auditoria/**")
                     .hasAnyAuthority("OP_AUDITORIA_VER", "ROLE_ADMINISTRADOR")
+
+                // ---- Reportes y estadisticas (S21) ----
+                .requestMatchers(HttpMethod.GET, "/api/reportes/**")
+                    .hasAnyAuthority("OP_REPORTE_VER", "ROLE_ADMINISTRADOR")
 
                 .anyRequest().authenticated()
             )

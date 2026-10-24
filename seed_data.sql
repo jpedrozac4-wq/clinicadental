@@ -51,7 +51,13 @@ INSERT INTO cat_log_accion (code, description) VALUES
 ('TRATAMIENTO_ACTUALIZAR', 'Modificacion de un tratamiento del catalogo'),
 ('REALIZADO_REGISTRAR',    'Registro de un tratamiento realizado'),
 ('FACTURA_EMITIR',         'Emision de un comprobante'),
-('PAGO_REGISTRAR',         'Registro de un pago total o parcial');
+('PAGO_REGISTRAR',         'Registro de un pago total o parcial'),
+('USUARIO_CREAR',          'Alta de un usuario del sistema'),
+('USUARIO_ACTUALIZAR',     'Modificacion de un usuario o de su rol'),
+('USUARIO_BAJA',           'Baja logica de un usuario'),
+('ROL_CREAR',              'Alta de un rol con su matriz de permisos'),
+('ROL_ACTUALIZAR',         'Modificacion de la matriz de permisos de un rol'),
+('ROL_ELIMINAR',           'Eliminacion de un rol');
 
 -- ============================================================================
 -- 2. SEGURIDAD: ROLES, PERMISOS Y USUARIOS
@@ -84,7 +90,8 @@ INSERT INTO permission (permission_name, modulo, action, description) VALUES
 ('RECORDATORIO_VER',        'CITA',        'READ',   'Consultar los recordatorios de citas'),
 ('RECORDATORIO_ENVIAR',     'CITA',        'UPDATE', 'Despachar recordatorios pendientes'),
 ('USUARIOS_ADMIN',          'SEGURIDAD',   'UPDATE', 'Administrar usuarios, roles y permisos'),
-('AUDITORIA_VER',           'SEGURIDAD',   'READ',   'Consultar la bitacora de auditoria');
+('AUDITORIA_VER',           'SEGURIDAD',   'READ',   'Consultar la bitacora de auditoria'),
+('REPORTE_VER',             'REPORTE',     'READ',   'Consultar los reportes de ingresos, produccion y ocupacion');
 
 -- ROLE_ADMINISTRADOR: acceso total
 INSERT INTO role_permission (id_role, id_permission)
