@@ -47,15 +47,16 @@
    Environment:
      BASE_URL             front end origin                (default http://localhost)
      SMOKE_ADMIN_USER     bootstrap administrator user    (default admin)
-     SMOKE_ADMIN_PASSWORD bootstrap administrator password (default cambiar-esta-clave)
+     SMOKE_ADMIN_PASSWORD bootstrap administrator password (OBLIGATORIA, sin default)
      CHROME_BIN           absolute path to chrome         (default: Windows Chrome install)
      CDP_PORT             remote debugging port           (default 9333, not the MCP's 9222)
      OUT_DIR              screenshots and report.json     (default tools/artifacts)
 
    The administrator credentials must match CLINICA_ADMIN_USERNAME /
-   CLINICA_ADMIN_PASSWORD of the stack (see docs/DESPLIEGUE.md, section 2). They
-   are never hardcoded here: the defaults above are the documented bootstrap
-   values, and the environment always wins.
+   CLINICA_ADMIN_PASSWORD of the stack (see docs/DESPLIEGUE.md, section 2). The
+   password has no default and no copy in this file: a committed password is a
+   published password, so a missing SMOKE_ADMIN_PASSWORD stops the run before
+   Chrome starts.
 
    The run is idempotent and self-cleaning: users, patients, treatments, citas,
    receipts and payments get names/codes/emails stamped with a per-run id so
@@ -84,9 +85,11 @@ const BASE = (process.env.BASE_URL || "http://localhost").replace(/\/+$/, "");
 const OUT = process.env.OUT_DIR || join(HERE, "artifacts");
 const USER_DIR = join(OUT, "chrome-profile");
 
-/* Bootstrap administrator (S23): never hardcoded inline, always overridable. */
+/* Bootstrap administrator (S23): el repositorio no lleva credenciales. El usuario
+   tiene default porque la documentacion lo nombra; la contrasenia se exige por
+   entorno, asi ninguna clave real queda versionada. */
 const ADMIN_USER = process.env.SMOKE_ADMIN_USER || "admin";
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "cambiar-esta-clave";
+const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "";
 
 /* ----------------------------------------------------------------------------
    SIDEBAR esperado para el administrador (S22)
@@ -1123,6 +1126,18 @@ if (CHECK_ONLY) {
     }
 }
 
+if (!ADMIN_PASSWORD) {
+    // Una contrasenia versionada es una contrasenia publicada: el arnes se niega a
+    // correr sin credenciales en el entorno, antes de lanzar Chrome.
+    console.error(
+        "Falta SMOKE_ADMIN_PASSWORD: el arnes no lleva credenciales en el codigo.\n"
+        + "  Pasa la contrasenia del administrador bootstrap por entorno, la misma que\n"
+        + "  CLINICA_ADMIN_PASSWORD del stack (ver docs/DESPLIEGUE.md, seccion 2):\n"
+        + "    SMOKE_ADMIN_PASSWORD='<la del .env>' node tools/browser-smoke.mjs"
+    );
+    process.exit(2);
+}
+
 mkdirSync(OUT, { recursive: true });
 
 try {
@@ -1417,6 +1432,25 @@ try {
             "compuerta de login"
         );
 
+        // Un sistema en producción no ofrece perfiles de prueba ni publica una
+        // contraseña en pantalla: cada usuario entra con su cuenta real.
+        const perfilesDePrueba = await cdp.evaluate(`
+            return {
+                contenedores: document.querySelectorAll('#login-demo-profiles').length,
+                botones: document.querySelectorAll('[data-demo-user]').length,
+                contraseniaEnPantalla: /Password123!/.test(document.body.textContent || '')
+            };
+        `);
+        assert(
+            perfilesDePrueba.contenedores === 0 && perfilesDePrueba.botones === 0,
+            `La compuerta de login ofrece perfiles de prueba: ${perfilesDePrueba.botones} botón(es) en `
+            + `${perfilesDePrueba.contenedores} contenedor(es).`
+        );
+        assert(
+            !perfilesDePrueba.contraseniaEnPantalla,
+            "La compuerta de login publica una contraseña en pantalla."
+        );
+
         const stored = await cdp.evaluate(`return localStorage.getItem(${sel(STORAGE_TOKEN_KEY)});`);
         assert(stored === null, `Quedó un token guardado en "${STORAGE_TOKEN_KEY}" al iniciar la corrida.`);
         assert(
@@ -1489,6 +1523,20 @@ try {
             && (await countOf(cdp, '[data-route-id="auditoria"]')) === 1
             && (await countOf(cdp, '[data-route-id="reportes"]')) === 1,
             "El sidebar no muestra los módulos de administración entregados por S18-S22."
+        );
+
+        // El login navega al panel DESPUÉS de montar el shell. Si el paso termina antes,
+        // esa navegación diferida pisa la ruta que pida el paso siguiente y el escenario
+        // muere por una carrera del harness, no del producto.
+        await cdp.waitFor(
+            "return (window.location.hash || '') === '#/dashboard';",
+            20000,
+            "aterrizaje en el panel general tras el login"
+        );
+        await cdp.waitFor(
+            "return document.querySelectorAll('.kpi-container .kpi-stat-card').length === 4;",
+            20000,
+            "panel general montado tras el login"
         );
 
         return {

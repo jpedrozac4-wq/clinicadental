@@ -35,7 +35,7 @@
                 <div class="form-group">
                     <label for="login-username">Usuario</label>
                     <input type="text" id="login-username" class="form-control"
-                           autocomplete="username" placeholder="ej: recepcion1" required>
+                           autocomplete="username" placeholder="Tu usuario" required>
                 </div>
                 <div class="form-group">
                     <label for="login-password">Contraseña</label>
@@ -49,28 +49,6 @@
                     Ingresar al sistema
                 </button>
             </form>
-
-            <div class="auth-demo">
-                <p class="auth-demo-title">Perfiles de demostración</p>
-                <div id="login-demo-profiles" class="auth-demo-grid">
-                    <button type="button" class="auth-demo-btn" data-demo-user="admin">
-                        Administrador
-                    </button>
-                    <button type="button" class="auth-demo-btn" data-demo-user="recepcion1">
-                        Recepción
-                    </button>
-                    <button type="button" class="auth-demo-btn" data-demo-user="dentista1">
-                        Odontología general
-                    </button>
-                    <button type="button" class="auth-demo-btn" data-demo-user="dentista2">
-                        Ortodoncia
-                    </button>
-                </div>
-                <p class="auth-demo-hint">
-                    Elegir un perfil completa el formulario. Contraseña de la semilla:
-                    <code>Password123!</code>
-                </p>
-            </div>
 
             <span class="auth-footnote">
                 Los datos clínicos se almacenan en PostgreSQL y viajan sobre una sesión JWT.

@@ -183,7 +183,7 @@ Chrome en lugar de pasar en falso.
 | Variable | Default | Descripción |
 |----------|---------|-------------|
 | `SMOKE_ADMIN_USER` | `admin` | Usuario administrador con el que arranca el escenario. Debe coincidir con `CLINICA_ADMIN_USERNAME`. |
-| `SMOKE_ADMIN_PASSWORD` | `cambiar-esta-clave` | Contraseña del administrador. Debe coincidir con `CLINICA_ADMIN_PASSWORD`. Si el `.env` usa otra, exportarla antes de correr el smoke. |
+| `SMOKE_ADMIN_PASSWORD` | *(sin default, obligatorio)* | Contraseña del administrador. Debe coincidir con `CLINICA_ADMIN_PASSWORD`. No tiene valor por omisión a propósito: una contraseña versionada es una contraseña publicada, así que el arnés corta antes de lanzar Chrome si falta. |
 | `BASE_URL` | `http://localhost` | Origen del frontend. |
 | `CHROME_BIN` | Chrome instalado | Ruta absoluta al binario de Chrome. |
 | `CDP_PORT` | `9333` | Puerto de depuración remota del Chrome que lanza el arnés. |

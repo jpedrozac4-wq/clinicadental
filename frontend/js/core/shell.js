@@ -167,14 +167,6 @@ export class Shell {
                 }
             }
         });
-
-        qs("#login-demo-profiles")?.addEventListener("click", event => {
-            const button = event.target.closest("[data-demo-user]");
-            if (!button) return;
-            qs("#login-username").value = button.dataset.demoUser;
-            qs("#login-password").value = button.dataset.demoPassword || "Password123!";
-            qs("#login-password").focus();
-        });
     }
 
     /**

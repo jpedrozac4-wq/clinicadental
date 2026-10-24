@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AdministradorInicialTest {
 
-    private static final String PASSWORD = "cambiar-esta-clave";
+    private static final String PASSWORD = "ClaveDePrueba-123!";
     private static final String HASH = "$2a$12$hashgeneradoporelcodificador";
 
     @Mock

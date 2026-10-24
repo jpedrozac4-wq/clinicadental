@@ -42,8 +42,12 @@ frontend/
 docker compose up -d          # PostgreSQL + backend + Nginx
 # abrir http://localhost
 ```
-Usuarios de la semilla (`Password123!`): `admin`, `recepcion1`, `dentista1`,
-`dentista2`.
+La base arranca sin usuarios de negocio: el administrador inicial se crea al
+arrancar el backend desde `CLINICA_ADMIN_USERNAME` / `CLINICA_ADMIN_PASSWORD`
+(ver `docs/DESPLIEGUE.md`) y el resto del personal se da de alta desde
+*Usuarios y roles*. Los usuarios de `seed_data.sql` (`admin`, `recepcion1`,
+`dentista1`, `dentista2` con `Password123!`) existen solo si se carga esa base
+de demostración a mano; no forman parte de una instalación de producción.
 
 ## Pantallas y endpoints consumidos
 
@@ -130,8 +134,8 @@ No hay que tocar el shell ni el router: el sidebar agrupa y filtra solo.
 ## Contrato de DOM y storage (para las pruebas de humo)
 
 - Compuerta: `#login-gate`, `#login-form`, `#login-username`,
-  `#login-password`, `#login-error`, `#btn-login`, `#login-demo-profiles`
-  (`[data-demo-user]`).
+  `#login-password`, `#login-error`, `#btn-login`. La compuerta no ofrece perfiles
+  de prueba ni publica contraseñas: cada usuario entra con su cuenta.
 - Shell: `#app-shell`, `#app-sidebar`, `#sidebar-menu`,
   `.sidebar-link[data-route-id]`, `#sidebar-toggle`, `#app-view`,
   `#current-user-name`, `#current-user-role`, `#btn-logout`.
