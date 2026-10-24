@@ -1,0 +1,81 @@
+@startuml 08-secuencia-pago-parcial
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #6B7280
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F4F6F8
+  ParticipantFontColor #1F2933
+  GroupBorderColor #6B7280
+  GroupBackgroundColor #F9FAFB
+  DividerBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Recepcionista /\nAdministrador" as USR
+participant "PagoController" as CTRL
+participant "PagoService" as SRV
+participant "FacturaRepository" as FACT
+participant "PagoRepository" as PAGO
+participant "MetodoPagoRepository" as MET
+participant "EstadoFacturaRepository" as EST
+database "PostgreSQL\npago / factura" as DB
+
+USR -> CTRL : POST /api/facturas/{idFactura}/pagos\n{ monto, idMetodoPago, referencia? }
+CTRL -> SRV : registrar(idFactura, PagoRequest)
+SRV -> FACT : findById(idFactura)
+alt Factura inexistente
+  SRV --> CTRL : 404 "Factura no encontrada"
+  CTRL --> USR : 404 Not Found
+else Factura existente
+  alt Estado ANULADA
+    SRV --> CTRL : 409 "Una factura anulada no admite pagos"
+    CTRL --> USR : 409 Conflict
+  else Factura cobrable
+    SRV -> SRV : validar monto > 0
+    alt Monto inválido
+      SRV --> CTRL : 400 "El monto del pago debe ser mayor que cero"
+      CTRL --> USR : 400 Bad Request
+    else Monto válido
+      SRV -> MET : findByIdAndActiveTrue(idMetodoPago)
+      alt Método inexistente o inactivo
+        SRV --> CTRL : 404
+        CTRL --> USR : 404 "Método de pago no encontrado o inactivo"
+      else Método vigente
+        SRV -> PAGO : sumarPagos(idFactura)
+        note right of PAGO : SUM(monto) real,\nno el saldo recordado (S10)
+        PAGO --> SRV : total pagado
+        SRV -> SRV : acumulado = pagado + monto
+        alt acumulado > total de la factura
+          SRV --> CTRL : 409 "El total de pagos no puede superar el total"
+          CTRL --> USR : 409 Conflict
+        else acumulado <= total
+          SRV -> PAGO : save(pago)\nfechaPago, monto, método, referencia
+          PAGO -> DB : INSERT INTO pago
+          SRV -> SRV : saldo = total - acumulado
+          alt saldo = 0
+            SRV -> EST : findByCode("PAGADA")
+            EST --> SRV : EstadoFactura PAGADA
+          else saldo > 0
+            SRV -> EST : findByCode("PAGO_PARCIAL")
+            EST --> SRV : EstadoFactura PAGO_PARCIAL
+          end
+          SRV -> FACT : save(factura con saldo y estado)
+          FACT -> DB : UPDATE factura
+          SRV --> CTRL : PagoResponse.desde(pago)
+          CTRL --> USR : 201 Created\n(pago + saldo y estado de la factura)
+        end
+      end
+    end
+  end
+end
+
+@enduml

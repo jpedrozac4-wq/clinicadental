@@ -1,0 +1,61 @@
+@startuml casos-de-uso
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam usecase {
+  BackgroundColor #F4F6F8
+  BorderColor #333333
+}
+
+left to right direction
+
+actor "Recepcionista" as REC
+actor "Dentista" as DEN
+actor "Administrador" as ADM
+
+RECTANGLE "Clínica Dental" {
+  usecase "Registrar paciente" as UC01
+  usecase "Editar datos del paciente" as UC02
+  usecase "Dar de baja al paciente" as UC03
+  usecase "Consultar historial clínico" as UC04
+  usecase "Programar cita" as UC05
+  usecase "Reprogramar cita" as UC06
+  usecase "Cancelar cita" as UC07
+  usecase "Consultar agenda" as UC08
+  usecase "Despachar recordatorio" as UC09
+  usecase "Gestionar catálogo de tratamientos" as UC10
+  usecase "Registrar tratamiento realizado" as UC11
+  usecase "Emitir factura" as UC12
+  usecase "Registrar pago (parcial o total)" as UC13
+  usecase "Gestionar usuarios y roles" as UC14
+  usecase "Consultar auditoría" as UC15
+}
+
+REC --> UC01
+REC --> UC02
+REC --> UC03
+REC --> UC04
+REC --> UC05
+REC --> UC06
+REC --> UC07
+REC --> UC08
+REC --> UC09
+REC --> UC12
+REC --> UC13
+
+DEN --> UC04
+DEN --> UC05
+DEN --> UC08
+DEN --> UC11
+
+ADM --> UC10
+ADM --> UC14
+ADM --> UC15
+ADM --> UC04
+ADM --> UC08
+ADM --> UC12
+ADM --> UC13
+
+UC11 ..> UC04 : <<include>>
+UC12 ..> UC11 : <<include>>
+@enduml

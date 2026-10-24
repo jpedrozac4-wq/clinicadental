@@ -1,0 +1,74 @@
+@startuml 07-secuencia-emision-factura
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam dpi 200
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #6B7280
+  LifeLineBackgroundColor #FFFFFF
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #F4F6F8
+  ParticipantFontColor #1F2933
+  GroupBorderColor #6B7280
+  GroupBackgroundColor #F9FAFB
+  DividerBackgroundColor #E5E7EB
+}
+skinparam note {
+  BackgroundColor #FAFAFA
+  BorderColor #9CA3AF
+  FontColor #374151
+}
+
+actor "Recepcionista /\nAdministrador" as USR
+participant "FacturaController" as CTRL
+participant "FacturaService" as SRV
+participant "PacienteRepository" as PAC
+participant "TratamientoRealizadoRepository" as REAL
+participant "FacturaDetalleRepository" as DET
+participant "EstadoFacturaRepository" as EST
+participant "FacturaRepository" as FACT
+participant "NumeroFactura" as NUM
+database "PostgreSQL\nfactura / factura_detalle" as DB
+
+USR -> CTRL : POST /api/facturas\n{ idPaciente, idsRealizado[], observaciones? }
+CTRL -> SRV : emitir(FacturaRequest)
+alt Lista de tratamientos realizados vacía
+  SRV --> CTRL : 400 "La factura debe incluir al menos un tratamiento"
+  CTRL --> USR : 400 Bad Request
+else Con al menos una línea
+  SRV -> PAC : findByIdAndActiveTrue(idPaciente)
+  alt Paciente inexistente o dado de baja
+    SRV --> CTRL : 404
+    CTRL --> USR : 404 "Paciente no encontrado o dado de baja"
+  else Paciente vigente
+    group Validación de cada id_realizado (sin consumir numeración)
+      SRV -> REAL : findById(idRealizado)
+      SRV -> DET : existsByRealizadoId(idRealizado)
+      note right of SRV
+        Rechaza con 409 si la línea está
+        repetida, ya fue facturada o es de
+        otro paciente; 404 si no existe (S9).
+      end note
+    end
+    SRV -> SRV : total = Σ costo congelado\n(scale 2, HALF_UP)
+    SRV -> FACT : ultimoNumero()
+    note right of FACT : MAX(numero) de los\ncomprobantes ya persistidos
+    FACT --> SRV : último número emitido
+    SRV -> NUM : siguiente(ultimoNumero)
+    NUM --> SRV : "F-000001", "F-000002", ...
+    SRV -> EST : findByCode("EMITIDA")
+    EST --> SRV : EstadoFactura
+    SRV -> FACT : save(factura)\nnumero, total, saldo = total,\nestado EMITIDA
+    FACT -> DB : INSERT INTO factura
+    loop Cada tratamiento realizado facturable
+      SRV -> DET : save(FacturaDetalle)
+      note right : descripcion = tratamiento.nombre\nmonto = costo congelado del realizado
+    end
+    DET -> DB : INSERT INTO factura_detalle
+    SRV --> CTRL : FacturaResponse.desde(factura, detalles)
+    CTRL --> USR : 201 Created\n(numero, total, saldo, EMITIDA)
+  end
+end
+
+@enduml

@@ -1,5 +1,8 @@
 package com.clinica.dental.tratamiento;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.shared.ClinicaBusinessException;
 import com.clinica.dental.tratamiento.dto.TratamientoRequest;
 import com.clinica.dental.tratamiento.dto.TratamientoResponse;
@@ -10,14 +13,21 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Reglas del catalogo de tratamientos dentales (S7). */
+/**
+ * Reglas del catalogo de tratamientos dentales (S7).
+ *
+ * <p>El alta y la edicion dejan su fila de auditoria (S19) al final del metodo, dentro de la misma
+ * transaccion. Un precio invalido o un codigo duplicado no audita nada porque no escribe nada.
+ */
 @Service
 public class TratamientoService {
 
     private final TratamientoRepository repository;
+    private final AuditoriaService auditoria;
 
-    public TratamientoService(TratamientoRepository repository) {
+    public TratamientoService(TratamientoRepository repository, AuditoriaService auditoria) {
         this.repository = repository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -30,7 +40,9 @@ public class TratamientoService {
         Tratamiento tratamiento = new Tratamiento();
         aplicar(tratamiento, request);
         tratamiento.setActive(true);
-        return TratamientoResponse.desde(repository.save(tratamiento));
+        Tratamiento guardado = repository.save(tratamiento);
+        auditar(AccionAuditoria.TRATAMIENTO_CREAR, guardado);
+        return TratamientoResponse.desde(guardado);
     }
 
     @Transactional
@@ -44,7 +56,9 @@ public class TratamientoService {
                 "Ya existe un tratamiento con el codigo " + request.codigo().trim());
         }
         aplicar(tratamiento, request);
-        return TratamientoResponse.desde(repository.save(tratamiento));
+        Tratamiento guardado = repository.save(tratamiento);
+        auditar(AccionAuditoria.TRATAMIENTO_ACTUALIZAR, guardado);
+        return TratamientoResponse.desde(guardado);
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +66,15 @@ public class TratamientoService {
         return repository.findByActiveTrueOrderByNombreAsc().stream()
             .map(TratamientoResponse::desde)
             .toList();
+    }
+
+    /** Una fila de auditoria por alta o edicion, con el precio vigente que quedo en el catalogo. */
+    private void auditar(AccionAuditoria accion, Tratamiento guardado) {
+        auditoria.registrar(accion, guardado.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idTratamiento", guardado.getId())
+                .con("codigo", guardado.getCodigo())
+                .con("precio", guardado.getPrecio()));
     }
 
     private static void aplicar(Tratamiento tratamiento, TratamientoRequest request) {

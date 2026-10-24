@@ -1,5 +1,5 @@
 # ============================================================================
-# GITIGNORE - ERP & E-COMMERCE CALZADO
+# GITIGNORE - SISTEMA DE GESTION PARA CONSULTORIO DENTAL
 # ============================================================================
 
 # Maven & Java Build Artifacts
@@ -90,3 +90,7 @@ PRACTICA 2-2 (1).pdf
 
 # Internal ODD task notes (kept on disk and in Engram, never in the repository)
 odd/
+
+# Secretos locales de docker compose: no se versionan. El contenido y el formato
+# estan documentados en docs/DESPLIEGUE.md, seccion 2.
+.env

@@ -1,5 +1,8 @@
 package com.clinica.dental.paciente;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.paciente.dto.PacienteRequest;
 import com.clinica.dental.paciente.dto.PacienteResponse;
 import com.clinica.dental.shared.ClinicaBusinessException;
@@ -16,6 +19,10 @@ import java.util.regex.Pattern;
  *
  * <p>La validacion vive aca y no solo en las anotaciones del DTO: el alta debe rechazarse aunque la
  * llamada no pase por el controlador, y ese rechazo tiene que dejar la base intacta.
+ *
+ * <p>Cada escritura deja su fila de auditoria (S19) al final del metodo, dentro de la misma
+ * transaccion. Un alta o edicion rechazada y una baja repetida no auditan nada, porque tampoco
+ * escriben nada.
  */
 @Service
 public class PacienteService {
@@ -24,9 +31,11 @@ public class PacienteService {
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$");
 
     private final PacienteRepository repository;
+    private final AuditoriaService auditoria;
 
-    public PacienteService(PacienteRepository repository) {
+    public PacienteService(PacienteRepository repository, AuditoriaService auditoria) {
         this.repository = repository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -35,7 +44,12 @@ public class PacienteService {
         Paciente paciente = new Paciente();
         aplicar(paciente, request);
         paciente.setActive(true);
-        return PacienteResponse.desde(repository.save(paciente));
+        Paciente guardado = repository.save(paciente);
+        auditoria.registrar(AccionAuditoria.PACIENTE_CREAR, guardado.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPaciente", guardado.getId())
+                .con("email", guardado.getEmail()));
+        return PacienteResponse.desde(guardado);
     }
 
     @Transactional(readOnly = true)
@@ -54,12 +68,17 @@ public class PacienteService {
         validar(request);
         Paciente paciente = buscarVigente(id);
         aplicar(paciente, request);
-        return PacienteResponse.desde(repository.save(paciente));
+        Paciente guardado = repository.save(paciente);
+        auditoria.registrar(AccionAuditoria.PACIENTE_ACTUALIZAR, guardado.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPaciente", guardado.getId())
+                .con("email", guardado.getEmail()));
+        return PacienteResponse.desde(guardado);
     }
 
     /**
      * Baja logica del paciente. Es idempotente: repetirla sobre un paciente ya dado de baja no
-     * vuelve a escribir, y el historial clinico y facturado queda intacto.
+     * vuelve a escribir ni audita, y el historial clinico y facturado queda intacto.
      */
     @Transactional
     public void darDeBaja(Integer id) {
@@ -70,6 +89,10 @@ public class PacienteService {
         }
         paciente.setActive(false);
         repository.save(paciente);
+        auditoria.registrar(AccionAuditoria.PACIENTE_BAJA, paciente.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPaciente", paciente.getId())
+                .con("activo", Boolean.FALSE));
     }
 
     private Paciente buscarVigente(Integer id) {

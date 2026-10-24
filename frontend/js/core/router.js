@@ -1,12 +1,14 @@
 /* ============================================================================
-   ROUTER HASH DEL PORTAL ERP
+   ROUTER HASH DEL SISTEMA CLINICO
    ----------------------------------------------------------------------------
    Rutas declarativas en core/routes.js. El router resuelve el hash, valida la
    sesion y los permisos, monta la vista en el contenedor y avisa al shell para
-   resaltar el item activo.
+   resaltar el item activo. Las vistas se cargan con import() diferido, de modo
+   que un perfil no descarga modulos que no puede usar.
    ============================================================================ */
 import { el, emptyState } from "./dom.js";
 import { AuthService } from "../services/auth-service.js";
+import { CONFIG } from "../config.js";
 
 export class Router {
 
@@ -28,11 +30,14 @@ export class Router {
     }
 
     start() {
-        if (this._started) return;
+        if (this._started) {
+            this.resolve();
+            return;
+        }
         this._started = true;
         window.addEventListener("hashchange", this._onHashChange);
 
-        if (!window.location.hash) {
+        if (!this.rawHash() || this.currentPath() === "/") {
             this.navigate(this.preferredStartPath(), { replace: true });
             return;
         }
@@ -47,11 +52,11 @@ export class Router {
 
     /**
      * Ruta de aterrizaje: la preferida si el perfil puede verla; si no, el primer
-     * modulo accesible. Evita que un cajero caiga en "Acceso restringido" apenas
+     * modulo accesible. Evita que un perfil caiga en "Acceso restringido" apenas
      * inicia sesion.
      */
     preferredStartPath() {
-        const accessible = this.accessibleRoutes();
+        const accessible = this.navRoutes();
         if (!accessible.length) {
             return this.defaultPath || "/sin-acceso";
         }
@@ -64,8 +69,17 @@ export class Router {
         return this.routes.filter(route => AuthService.canAccess(route));
     }
 
+    /**
+     * Rutas que ademas se muestran en el sidebar. Una ruta `hidden` existe y se
+     * puede navegar (por ejemplo el historial de un paciente), pero no ocupa un
+     * item del menu.
+     */
+    navRoutes() {
+        return this.accessibleRoutes().filter(route => !route.hidden);
+    }
+
     firstAccessiblePath() {
-        const first = this.accessibleRoutes()[0];
+        const first = this.navRoutes()[0];
         return first ? first.path : "/sin-acceso";
     }
 
@@ -75,6 +89,7 @@ export class Router {
             this.resolve();
             return;
         }
+
         if (replace) {
             window.history.replaceState(null, "", target);
             this.resolve();
@@ -84,24 +99,35 @@ export class Router {
     }
 
     currentPath() {
-        return window.location.hash.replace(/^#/, "") || "/";
+        return this.rawHash().split("?")[0] || "/";
+    }
+
+    /** Query string del hash (por ejemplo #/pacientes?nuevo=1). */
+    currentQuery() {
+        const raw = this.rawHash();
+        const index = raw.indexOf("?");
+        return new URLSearchParams(index >= 0 ? raw.slice(index + 1) : "");
+    }
+
+    rawHash() {
+        return window.location.hash.replace(/^#/, "");
     }
 
     /** Resuelve el hash actual y monta la vista correspondiente. */
     async resolve() {
         const path = this.currentPath();
-        const route = this.routes.find(candidate => candidate.path === path);
+        const route = this.matchRoute(path);
 
         if (!route) {
             this.mountFallback(
                 "Ruta no encontrada",
-                `La sección "${path}" no existe en este portal.`
+                `La sección "${path}" no existe en el sistema.`
             );
             return;
         }
 
         if (!AuthService.isAuthenticated()) {
-            this.mountFallback("Sesión requerida", "Iniciá sesión para acceder al portal.");
+            this.mountFallback("Sesión requerida", "Iniciá sesión para acceder al sistema.");
             this.notify(route, null);
             return;
         }
@@ -118,10 +144,25 @@ export class Router {
         await this.mountRoute(route, path);
     }
 
+    /** Busca la ruta declarada que corresponde al path actual (admite :params). */
+    matchRoute(path) {
+        const exact = this.routes.find(candidate => candidate.path === path);
+        if (exact) return exact;
+
+        const pathParts = path.split("/").filter(Boolean);
+        return this.routes.find(candidate => {
+            const patternParts = candidate.path.split("/").filter(Boolean);
+            if (patternParts.length !== pathParts.length) return false;
+            return patternParts.every((part, index) =>
+                part.startsWith(":") ? pathParts[index].length > 0 : part === pathParts[index]);
+        }) || null;
+    }
+
     async mountRoute(route, path) {
         this.unmountActive();
         this.activeRoute = route;
         this.container.replaceChildren();
+        this.updateTitle(route);
 
         try {
             const module = await route.loader();
@@ -131,7 +172,13 @@ export class Router {
             }
 
             const params = extractParams(route.path, path);
-            const view = new ViewClass({ route, params, navigate: (target) => this.navigate(target) });
+            const query = this.currentQuery();
+            const view = new ViewClass({
+                route,
+                params,
+                query,
+                navigate: (target) => this.navigate(target)
+            });
             this.activeView = view;
 
             const content = await view.mount(this.container);
@@ -148,9 +195,15 @@ export class Router {
         }
     }
 
+    updateTitle(route) {
+        const label = route?.label || "Acceso";
+        document.title = `${label} · ${CONFIG.APP_NAME}`;
+    }
+
     mountFallback(title, message) {
         this.unmountActive();
         this.activeRoute = null;
+        document.title = `${title} · ${CONFIG.APP_NAME}`;
         this.container.replaceChildren(
             el("div", { class: "card" }, [
                 el("h2", { text: title }),
@@ -178,7 +231,7 @@ export class Router {
 }
 
 /** Extrae parametros de rutas con el patron "/ruta/:id". */
-function extractParams(pattern, path) {
+export function extractParams(pattern, path) {
     const patternParts = pattern.split("/").filter(Boolean);
     const pathParts = path.split("/").filter(Boolean);
     if (patternParts.length !== pathParts.length) return {};

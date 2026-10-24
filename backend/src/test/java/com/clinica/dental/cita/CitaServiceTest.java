@@ -1,10 +1,14 @@
 package com.clinica.dental.cita;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.cita.dto.CitaRequest;
 import com.clinica.dental.cita.dto.CitaResponse;
 import com.clinica.dental.cita.dto.ReprogramarRequest;
 import com.clinica.dental.paciente.Paciente;
 import com.clinica.dental.paciente.PacienteRepository;
+import com.clinica.dental.recordatorio.RecordatorioService;
 import com.clinica.dental.seguridad.SystemUser;
 import com.clinica.dental.seguridad.SystemUserRepository;
 import com.clinica.dental.shared.ClinicaBusinessException;
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Reglas de agenda: programar, reprogramar y cancelar (S4, S6). */
@@ -45,6 +50,8 @@ class CitaServiceTest {
     @Mock private PacienteRepository pacientes;
     @Mock private TratamientoRepository tratamientos;
     @Mock private SystemUserRepository usuarios;
+    @Mock private RecordatorioService recordatorios;
+    @Mock private AuditoriaService auditoria;
 
     @InjectMocks private CitaService service;
 
@@ -267,5 +274,171 @@ class CitaServiceTest {
 
         assertThat(agenda).hasSize(1);
         assertThat(agenda.get(0).id()).isEqualTo(40);
+    }
+
+    @Test
+    void crearProgramaElRecordatorioDeLaCitaAgendada() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> {
+            Cita c = inv.getArgument(0);
+            c.setId(50);
+            return c;
+        });
+
+        service.crear(new CitaRequest(1, 2, 3, enDosDias(), null));
+
+        ArgumentCaptor<Cita> agendadas = ArgumentCaptor.forClass(Cita.class);
+        verify(recordatorios).programarPara(agendadas.capture());
+        assertThat(agendadas.getValue().getId()).isEqualTo(50);
+        assertThat(agendadas.getValue().getEstado().getCode()).isEqualTo(EstadoCita.PROGRAMADA);
+    }
+
+    @Test
+    void crearConSolapamientoNoProgramaRecordatorios() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(1L);
+
+        catchThrowableOfType(() -> service.crear(new CitaRequest(1, 2, 3, enDosDias(), null)),
+            ClinicaBusinessException.class);
+
+        verify(recordatorios, never()).programarPara(any(Cita.class));
+    }
+
+    @Test
+    void cancelarCancelaLosRecordatoriosPendientesDeLaCita() {
+        Cita c = cita(30, EstadoCita.CONFIRMADA, enDosDias());
+        when(citas.findById(30)).thenReturn(Optional.of(c));
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.cancelar(30);
+
+        verify(recordatorios).cancelarPendientes(30);
+    }
+
+    @Test
+    void cancelarUnaCitaYaCanceladaNoVuelveATocarLosRecordatorios() {
+        when(citas.findById(31)).thenReturn(Optional.of(cita(31, EstadoCita.CANCELADA, enDosDias())));
+
+        service.cancelar(31);
+
+        verify(recordatorios, never()).cancelarPendientes(any());
+    }
+
+    @Test
+    void reprogramarCancelaElRecordatorioDeLaOriginalYProgramaElDeLaNueva() {
+        Cita original = cita(20, EstadoCita.PROGRAMADA, enDosDias());
+        when(citas.findById(20)).thenReturn(Optional.of(original));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OffsetDateTime nuevaFecha = enDosDias().plusDays(3);
+        service.reprogramar(20, new ReprogramarRequest(nuevaFecha, null));
+
+        verify(recordatorios).cancelarPendientes(20);
+
+        ArgumentCaptor<Cita> agendadas = ArgumentCaptor.forClass(Cita.class);
+        verify(recordatorios).programarPara(agendadas.capture());
+        assertThat(agendadas.getValue().getCitaOrigen()).isSameAs(original);
+        assertThat(agendadas.getValue().getFechaHoraInicio()).isEqualTo(nuevaFecha);
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaLaProgramacionConLaCitaAgendada() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> {
+            Cita c = inv.getArgument(0);
+            c.setId(50);
+            return c;
+        });
+
+        service.crear(new CitaRequest(1, 2, 3, enDosDias(), "Dolor molar"));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.CITA_CREAR), eq(50), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("idPaciente", 1)
+            .containsEntry("idDentista", 3)
+            .containsEntry("estado", "PROGRAMADA");
+    }
+
+    @Test
+    void auditaLaReprogramacionConLaCitaOriginalYLaNueva() {
+        Cita original = cita(20, EstadoCita.PROGRAMADA, enDosDias());
+        when(citas.findById(20)).thenReturn(Optional.of(original));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(0L);
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> {
+            Cita c = inv.getArgument(0);
+            if (c.getId() == null) {
+                c.setId(21);
+            }
+            return c;
+        });
+
+        service.reprogramar(20, new ReprogramarRequest(enDosDias().plusDays(3), null));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.CITA_REPROGRAMAR), eq(21), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("idCitaOrigen", 20)
+            .containsEntry("estado", "REPROGRAMADA");
+    }
+
+    @Test
+    void auditaLaCancelacionConElEstadoFinal() {
+        Cita c = cita(30, EstadoCita.CONFIRMADA, enDosDias());
+        when(citas.findById(30)).thenReturn(Optional.of(c));
+        when(citas.save(any(Cita.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.cancelar(30);
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.CITA_CANCELAR), eq(30), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("estado", "CANCELADA")
+            .containsEntry("idPaciente", 1);
+    }
+
+    @Test
+    void unaCancelacionRepetidaNoDejaFilaDeAuditoria() {
+        when(citas.findById(31)).thenReturn(Optional.of(cita(31, EstadoCita.CANCELADA, enDosDias())));
+
+        service.cancelar(31);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unaCitaAtendidaNoDejaFilaDeAuditoriaAlReprogramarNiAlCancelar() {
+        when(citas.findById(32)).thenReturn(Optional.of(
+            cita(32, EstadoCita.ATENDIDA, OffsetDateTime.now().minusDays(2))));
+
+        catchThrowableOfType(() -> service.reprogramar(32, new ReprogramarRequest(enDosDias(), null)),
+            ClinicaBusinessException.class);
+        catchThrowableOfType(() -> service.cancelar(32), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unSolapamientoDeAgendaNoDejaFilaDeAuditoria() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, 45)));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.contarSolapadas(eq(3), any(), any())).thenReturn(1L);
+
+        catchThrowableOfType(() -> service.crear(new CitaRequest(1, 2, 3, enDosDias(), null)),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }

@@ -29,12 +29,46 @@ spring:
     show-sql: false
     open-in-view: false
 
+  # SMTP configurable de los recordatorios de citas (S5, S15).
+  # host vacio = no se intenta enviar: la fila queda como SIMULADA.
+  mail:
+    host: ${CLINICA_SMTP_HOST:}
+    port: ${CLINICA_SMTP_PORT:587}
+    username: ${CLINICA_SMTP_USERNAME:}
+    password: ${CLINICA_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${CLINICA_SMTP_AUTH:true}
+          starttls:
+            enable: ${CLINICA_SMTP_STARTTLS:true}
+          connectiontimeout: ${CLINICA_SMTP_TIMEOUT_MS:10000}
+          timeout: ${CLINICA_SMTP_TIMEOUT_MS:10000}
+          writetimeout: ${CLINICA_SMTP_TIMEOUT_MS:10000}
+
 server:
   port: ${SERVER_PORT:8080}
   servlet:
     context-path: /
 
 clinica:
+  # Administrador inicial (S23): lo crea el backend al arrancar, y solo si no
+  # existe ningun administrador activo. Sin CLINICA_ADMIN_PASSWORD el arranque
+  # falla con un mensaje explicito, en lugar de crear una cuenta con una clave
+  # conocida. Los valores reales viven en el .env local, nunca en el repo.
+  bootstrap:
+    admin:
+      username: ${CLINICA_ADMIN_USERNAME:admin}
+      password: ${CLINICA_ADMIN_PASSWORD:}
+      email: ${CLINICA_ADMIN_EMAIL:admin@clinicaldental.com}
+      full-name: ${CLINICA_ADMIN_FULLNAME:Administrador de la Clinica}
+  # Proceso programado de recordatorios (S5): cada 15 minutos por
+  # defecto, con 1 minuto de gracia al arrancar la aplicacion.
+  recordatorios:
+    intervalo-ms: ${CLINICA_RECORDATORIO_INTERVALO_MS:900000}
+    retraso-inicial-ms: ${CLINICA_RECORDATORIO_RETRASO_INICIAL_MS:60000}
+    remitente: >-
+      ${CLINICA_RECORDATORIO_REMITENTE:recordatorios@clinica-dental.local}
   security:
     jwt:
       # Override in production. Must be at least 32 bytes for HS256.

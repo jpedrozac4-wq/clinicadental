@@ -1,5 +1,8 @@
 package com.clinica.dental.realizado;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.cita.Cita;
 import com.clinica.dental.cita.CitaRepository;
 import com.clinica.dental.cita.CitaService;
@@ -25,6 +28,10 @@ import java.util.List;
  * <p>El costo se congela con el precio del catalogo, y si el procedimiento viene de una cita, esa
  * cita queda {@code ATENDIDA}: la agenda y el historial clinico no pueden contarse historias
  * distintas.
+ *
+ * <p>El registro deja su fila de auditoria (S19) al final del metodo, despues de marcar la cita y
+ * dentro de la misma transaccion: si la auditoria falla, tampoco queda el tratamiento realizado ni
+ * la cita atendida.
  */
 @Service
 public class TratamientoRealizadoService {
@@ -35,19 +42,22 @@ public class TratamientoRealizadoService {
     private final SystemUserRepository usuarios;
     private final CitaRepository citas;
     private final CitaService citaService;
+    private final AuditoriaService auditoria;
 
     public TratamientoRealizadoService(TratamientoRealizadoRepository realizados,
                                        PacienteRepository pacientes,
                                        TratamientoRepository tratamientos,
                                        SystemUserRepository usuarios,
                                        CitaRepository citas,
-                                       CitaService citaService) {
+                                       CitaService citaService,
+                                       AuditoriaService auditoria) {
         this.realizados = realizados;
         this.pacientes = pacientes;
         this.tratamientos = tratamientos;
         this.usuarios = usuarios;
         this.citas = citas;
         this.citaService = citaService;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -91,6 +101,13 @@ public class TratamientoRealizadoService {
         if (cita != null) {
             citaService.marcarAtendida(cita.getId(), paciente.getId());
         }
+        auditoria.registrar(AccionAuditoria.REALIZADO_REGISTRAR, guardado.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idRealizado", guardado.getId())
+                .con("idPaciente", paciente.getId())
+                .con("idTratamiento", tratamiento.getId())
+                .con("idCita", cita == null ? null : cita.getId())
+                .con("costo", guardado.getCosto()));
         return RealizadoResponse.desde(guardado);
     }
 

@@ -1,5 +1,8 @@
 package com.clinica.dental.tratamiento;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.shared.ClinicaBusinessException;
 import com.clinica.dental.tratamiento.dto.TratamientoRequest;
 import com.clinica.dental.tratamiento.dto.TratamientoResponse;
@@ -18,8 +21,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Reglas del catalogo de tratamientos (S7). */
@@ -28,6 +33,9 @@ class TratamientoServiceTest {
 
     @Mock
     private TratamientoRepository repository;
+
+    @Mock
+    private AuditoriaService auditoria;
 
     @InjectMocks
     private TratamientoService service;
@@ -141,5 +149,66 @@ class TratamientoServiceTest {
         when(repository.findByActiveTrueOrderByNombreAsc()).thenReturn(List.of(persistido(1), persistido(2)));
 
         assertThat(service.listar()).hasSize(2);
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaElAltaDelTratamientoConCodigoYPrecio() {
+        when(repository.save(any(Tratamiento.class))).thenAnswer(inv -> {
+            Tratamiento t = inv.getArgument(0);
+            t.setId(11);
+            return t;
+        });
+
+        service.crear(ficha("odo-002", "350.00"));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.TRATAMIENTO_CREAR), eq(11), detalle.capture());
+        assertThat(detalle.getValue().valores()).containsEntry("codigo", "ODO-002");
+        assertThat((BigDecimal) detalle.getValue().valores().get("precio"))
+            .isEqualByComparingTo("350.00");
+    }
+
+    @Test
+    void auditaLaEdicionDelTratamientoConElPrecioVigente() {
+        when(repository.findByIdAndActiveTrue(5)).thenReturn(Optional.of(persistido(5)));
+        when(repository.save(any(Tratamiento.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.actualizar(5, new TratamientoRequest("ODO-002", "Limpieza dental profunda",
+            "Incluye curetaje", new BigDecimal("480.00"), 60));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.TRATAMIENTO_ACTUALIZAR), eq(5), detalle.capture());
+        assertThat((BigDecimal) detalle.getValue().valores().get("precio"))
+            .isEqualByComparingTo("480.00");
+    }
+
+    @Test
+    void unCodigoDuplicadoNoDejaFilaDeAuditoria() {
+        when(repository.existsByCodigoIgnoreCase("ODO-002")).thenReturn(true);
+
+        catchThrowableOfType(() -> service.crear(ficha("ODO-002", "350.00")),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unPrecioInvalidoNoDejaFilaDeAuditoria() {
+        catchThrowableOfType(() -> service.crear(ficha("ODO-010", "0")),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unaEdicionInexistenteNoDejaFilaDeAuditoria() {
+        when(repository.findByIdAndActiveTrue(99)).thenReturn(Optional.empty());
+
+        catchThrowableOfType(() -> service.actualizar(99, ficha("ODO-002", "350.00")),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }

@@ -43,6 +43,12 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- SMTP de los recordatorios de citas (S5, S15) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- JWT: stateless authentication for the ERP session -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

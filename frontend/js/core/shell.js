@@ -1,26 +1,28 @@
 /* ============================================================================
-   SHELL DEL PORTAL ERP
+   SHELL DEL SISTEMA CLINICO
    ----------------------------------------------------------------------------
-   Construye el marco de navegacion: sidebar filtrado por permisos, cabecera con
-   perfil activo, cierre de sesion y la compuerta de login. El shell no conoce
-   ningun modulo de negocio: solo el registro de rutas y la sesion.
+   Construye el marco de navegacion: sidebar filtrado por rol y permisos,
+   cabecera con el perfil activo, cierre de sesion y la compuerta de login. El
+   shell no conoce ningun modulo de negocio: solo el registro de rutas y la
+   sesion vigente.
    ============================================================================ */
 import { AuthService } from "../services/auth-service.js";
 import { NotificationService } from "../services/notification-service.js";
 import { groupedRoutes } from "./routes.js";
 import { el, qs } from "./dom.js";
+import { CONFIG } from "../config.js";
 
 export class Shell {
 
     constructor({ router }) {
         this.router = router;
         this.sidebarMenu = qs("#sidebar-menu");
-        this.sidebar = qs("#erp-sidebar");
-        this.viewContainer = qs("#erp-view");
+        this.sidebar = qs("#app-sidebar");
+        this.viewContainer = qs("#app-view");
         this.userName = qs("#current-user-name");
         this.userRole = qs("#current-user-role");
         this.loginGate = qs("#login-gate");
-        this.shell = qs("#erp-shell");
+        this.shell = qs("#app-shell");
         this.menuToggle = qs("#sidebar-toggle");
     }
 
@@ -39,13 +41,15 @@ export class Shell {
         this.router.stop();
         if (this.shell) this.shell.hidden = true;
         if (this.loginGate) this.loginGate.hidden = false;
+        const password = qs("#login-password");
+        if (password) password.value = "";
         const username = qs("#login-username");
         if (username) username.focus();
     }
 
     renderSidebar() {
         if (!this.sidebarMenu) return;
-        const accessible = this.router.accessibleRoutes();
+        const accessible = this.router.navRoutes();
         this.sidebarMenu.replaceChildren();
 
         groupedRoutes(accessible).forEach(({ name, items }) => {
@@ -75,9 +79,17 @@ export class Shell {
     renderUser() {
         const session = AuthService.getSession();
         if (!session) return;
-        const roleLabel = (session.roles[0] || "SIN ROL").replace("ROLE_", "");
+
         if (this.userName) this.userName.textContent = session.fullName || session.username;
-        if (this.userRole) this.userRole.textContent = roleLabel;
+        if (this.userRole) {
+            this.userRole.textContent = AuthService.roleLabel(session.roles);
+        }
+
+        // Los botones de cabecera se etiquetan por rol para que el usuario sepa
+        // con que perfil esta trabajando (S13: sesion por roles).
+        if (this.shell) {
+            this.shell.dataset.role = (session.roles[0] || "").replace("ROLE_", "").toLowerCase();
+        }
     }
 
     /** Resalta el item activo del sidebar. */
@@ -122,7 +134,7 @@ export class Shell {
         const form = qs("#login-form");
         if (!form) return;
 
-        const submitButton = qs("#btn-erp-login");
+        const submitButton = qs("#btn-login");
         const errorBox = qs("#login-error");
 
         form.addEventListener("submit", async event => {
@@ -143,29 +155,33 @@ export class Shell {
 
             try {
                 const session = await AuthService.login(username, password);
-                NotificationService.success(`Bienvenido, ${session.fullName}.`);
+                const nombre = (session.fullName || session.username).split(" (")[0];
+                NotificationService.success(`Bienvenido/a, ${nombre}.`);
                 onAuthenticated();
             } catch (error) {
-                this.showLoginError(
-                    error.status === 401
-                        ? "Usuario o contraseña incorrectos."
-                        : error.message
-                );
+                this.showLoginError(this.loginErrorMessage(error));
             } finally {
                 if (submitButton) {
                     submitButton.disabled = false;
-                    submitButton.textContent = "Ingresar al ERP";
+                    submitButton.textContent = "Ingresar al sistema";
                 }
             }
         });
+    }
 
-        qs("#login-demo-profiles")?.addEventListener("click", event => {
-            const button = event.target.closest("[data-demo-user]");
-            if (!button) return;
-            qs("#login-username").value = button.dataset.demoUser;
-            qs("#login-password").value = button.dataset.demoPassword || "Password123!";
-            qs("#login-password").focus();
-        });
+    /**
+     * Mensaje de fallo de login. Spring Security responde 401 con
+     * {"status":"ERROR","message":"No autenticado"} cuando las credenciales no
+     * son validas, y el backend no expone el motivo exacto a proposito.
+     */
+    loginErrorMessage(error) {
+        if (error?.status === 401 || error?.status === 403) {
+            return "Usuario o contraseña incorrectos.";
+        }
+        if (error?.isNetworkError) {
+            return "No hay conexión con el servidor. Verificá que el backend esté disponible.";
+        }
+        return `No se pudo iniciar sesión (HTTP ${error?.status || "?"}). Verificá tu usuario y contraseña.`;
     }
 
     showLoginError(message) {
@@ -173,5 +189,12 @@ export class Shell {
         if (!errorBox) return;
         errorBox.textContent = message;
         errorBox.hidden = false;
+        if (this.shell) this.shell.hidden = true;
+        if (this.loginGate) this.loginGate.hidden = false;
+    }
+
+    /** Nombre del sistema para las vistas que lo necesiten. */
+    static appName() {
+        return CONFIG.APP_NAME;
     }
 }

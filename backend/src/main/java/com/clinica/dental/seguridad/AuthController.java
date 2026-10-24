@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Authentication entry point for the ERP and the storefront.
+ * Punto de entrada de autenticacion del sistema de clinica dental.
  *
- * <p>Login exchanges credentials for a stateless JWT. The token carries the canonical
- * {@code ROLE_*} authorities plus the granular {@code OP_*} permissions, which is what both the
- * back office menu and the endpoint matchers rely on.
+ * <p>El login canjea credenciales por un JWT sin estado. El token transporta las autoridades
+ * canonicas {@code ROLE_*} y los permisos granulares {@code OP_*}, que es de lo que dependen tanto
+ * el menu de la interfaz como los matchers de cada endpoint.
  */
 @RestController
 @RequestMapping("/api/auth")

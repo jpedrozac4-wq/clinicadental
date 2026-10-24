@@ -1,5 +1,8 @@
 package com.clinica.dental.realizado;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.cita.Cita;
 import com.clinica.dental.cita.CitaRepository;
 import com.clinica.dental.cita.CitaService;
@@ -15,6 +18,7 @@ import com.clinica.dental.tratamiento.Tratamiento;
 import com.clinica.dental.tratamiento.TratamientoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -43,6 +48,7 @@ class TratamientoRealizadoServiceTest {
     @Mock private SystemUserRepository usuarios;
     @Mock private CitaRepository citas;
     @Mock private CitaService citaService;
+    @Mock private AuditoriaService auditoria;
 
     @InjectMocks private TratamientoRealizadoService service;
 
@@ -195,5 +201,70 @@ class TratamientoRealizadoServiceTest {
         when(realizados.findAllByOrderByFechaRealizacionDesc()).thenReturn(List.of());
 
         assertThat(service.listar(null)).isEmpty();
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaElRegistroDelProcedimientoConSuCostoCongelado() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, "400.00")));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(realizados.save(any(TratamientoRealizado.class))).thenAnswer(inv -> {
+            TratamientoRealizado r = inv.getArgument(0);
+            r.setId(70);
+            return r;
+        });
+
+        service.registrar(pedido(null));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.REALIZADO_REGISTRAR), eq(70), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("idPaciente", 1)
+            .containsEntry("idTratamiento", 2)
+            .doesNotContainKey("idCita");
+        assertThat((BigDecimal) detalle.getValue().valores().get("costo"))
+            .isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    void auditaLaCitaVinculadaCuandoElProcedimientoVieneDeUnaCita() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, "400.00")));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.findById(20)).thenReturn(Optional.of(cita(20, 1)));
+        when(realizados.save(any(TratamientoRealizado.class))).thenAnswer(inv -> {
+            TratamientoRealizado r = inv.getArgument(0);
+            r.setId(71);
+            return r;
+        });
+
+        service.registrar(pedido(20));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.REALIZADO_REGISTRAR), eq(71), detalle.capture());
+        assertThat(detalle.getValue().valores()).containsEntry("idCita", 20);
+    }
+
+    @Test
+    void unaCitaDeOtroPacienteNoDejaFilaDeAuditoria() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(tratamientos.findByIdAndActiveTrue(2)).thenReturn(Optional.of(tratamiento(2, "400.00")));
+        when(usuarios.findById(3)).thenReturn(Optional.of(dentista(3)));
+        when(citas.findById(20)).thenReturn(Optional.of(cita(20, 99)));
+
+        catchThrowableOfType(() -> service.registrar(pedido(20)), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unProcedimientoConFechaFuturaNoDejaFilaDeAuditoria() {
+        catchThrowableOfType(() -> service.registrar(new RealizadoRequest(1, 2, 3,
+            OffsetDateTime.now().plusHours(3), "Procedimiento", null, null)),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }
