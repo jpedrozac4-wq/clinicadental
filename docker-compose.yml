@@ -23,9 +23,10 @@ services:
     volumes:
       # Persistencia inmutable de datos en volumen nombrado
       - postgres_data:/var/lib/postgresql/data
-      # Scripts DDL y datos semilla ejecutados automáticamente al inicializar
+      # Scripts DDL y bootstrap de produccion, ejecutados al inicializar el volumen.
+      # seed_data.sql NO se monta: los datos de demostracion se aplican a mano.
       - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./seed_data.sql:/docker-entrypoint-initdb.d/02_seed_data.sql:ro
+      - ./bootstrap_produccion.sql:/docker-entrypoint-initdb.d/02_bootstrap_produccion.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d clinica_dental"]
       interval: 10s
@@ -56,6 +57,13 @@ services:
       CLINICA_JWT_SECRET: >-
         ${CLINICA_JWT_SECRET:-clinica-dental-dev-secret-key-32bytes}
       CLINICA_JWT_EXPIRATION_SECONDS: ${CLINICA_JWT_EXPIRATION_SECONDS:-28800}
+      # Administrador inicial (S23). Solo se crea si no existe ningun
+      # administrador activo. Sin CLINICA_ADMIN_PASSWORD el backend no arranca:
+      # prefiero un fallo explicito antes que un administrador con clave conocida.
+      CLINICA_ADMIN_USERNAME: ${CLINICA_ADMIN_USERNAME:-admin}
+      CLINICA_ADMIN_PASSWORD: ${CLINICA_ADMIN_PASSWORD:-}
+      CLINICA_ADMIN_EMAIL: ${CLINICA_ADMIN_EMAIL:-admin@clinicaldental.com}
+      CLINICA_ADMIN_FULLNAME: ${CLINICA_ADMIN_FULLNAME:-Administrador de la Clinica}
     ports:
       - "8085:8080"
     networks:
