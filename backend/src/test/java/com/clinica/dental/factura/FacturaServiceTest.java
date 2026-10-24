@@ -1,5 +1,8 @@
 package com.clinica.dental.factura;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.paciente.Paciente;
 import com.clinica.dental.paciente.PacienteRepository;
 import com.clinica.dental.realizado.TratamientoRealizado;
@@ -11,6 +14,7 @@ import com.clinica.dental.shared.ClinicaBusinessException;
 import com.clinica.dental.tratamiento.Tratamiento;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -40,6 +45,7 @@ class FacturaServiceTest {
     @Mock private PacienteRepository pacientes;
     @Mock private TratamientoRealizadoRepository realizados;
     @Mock private FacturaPdfService pdf;
+    @Mock private AuditoriaService auditoria;
 
     @InjectMocks private FacturaService service;
 
@@ -288,5 +294,48 @@ class FacturaServiceTest {
         assertThat(comprobante.nombreArchivo()).isEqualTo("factura-F-000001.pdf");
         assertThat(comprobante.contenido()).containsExactly(1, 2, 3);
         verify(pdf).generar(guardada, List.of());
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaLaEmisionConNumeroTotalYSaldo() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(realizados.findById(7)).thenReturn(Optional.of(realizado(7, 1, "400.00", "Obturacion de resina")));
+        when(facturas.ultimoNumero()).thenReturn(Optional.of("F-000004"));
+        catalogoDeEstados();
+        guardadoConId(50);
+
+        service.emitir(pedido(7));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.FACTURA_EMITIR), eq(50), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("numero", "F-000005")
+            .containsEntry("idPaciente", 1)
+            .containsEntry("lineas", 1);
+        assertThat((BigDecimal) detalle.getValue().valores().get("total"))
+            .isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    void unRealizadoYaFacturadoNoDejaFilaDeAuditoria() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(realizados.findById(7)).thenReturn(Optional.of(realizado(7, 1, "400.00", "Obturacion de resina")));
+        when(detalles.existsByRealizadoId(7)).thenReturn(true);
+
+        catchThrowableOfType(() -> service.emitir(pedido(7)), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unRealizadoDeOtroPacienteNoDejaFilaDeAuditoria() {
+        when(pacientes.findByIdAndActiveTrue(1)).thenReturn(Optional.of(paciente(1)));
+        when(realizados.findById(7)).thenReturn(Optional.of(realizado(7, 99, "400.00", "Obturacion de resina")));
+
+        catchThrowableOfType(() -> service.emitir(pedido(7)), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }

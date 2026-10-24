@@ -1,5 +1,8 @@
 package com.clinica.dental.pago;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.factura.EstadoFactura;
 import com.clinica.dental.factura.EstadoFacturaRepository;
 import com.clinica.dental.factura.Factura;
@@ -24,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,6 +42,7 @@ class PagoServiceTest {
     @Mock private MetodoPagoRepository metodos;
     @Mock private FacturaRepository facturas;
     @Mock private EstadoFacturaRepository estados;
+    @Mock private AuditoriaService auditoria;
 
     @InjectMocks private PagoService service;
 
@@ -257,5 +262,56 @@ class PagoServiceTest {
 
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
         verify(pagos, never()).findByFacturaIdOrderByFechaPagoAsc(any());
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaElPagoConElEstadoYElSaldoResultantes() {
+        Factura factura = factura("550.00", "550.00", EstadoFactura.EMITIDA);
+        when(facturas.findById(50)).thenReturn(Optional.of(factura));
+        when(metodos.findByIdAndActiveTrue(1)).thenReturn(Optional.of(metodo(1, "EFECTIVO")));
+        when(pagos.sumarPagos(50)).thenReturn(new BigDecimal("0.00"));
+        catalogoDeEstados();
+        when(pagos.save(any(Pago.class))).thenAnswer(inv -> {
+            Pago p = inv.getArgument(0);
+            p.setId(90);
+            return p;
+        });
+
+        service.registrar(50, pedido("200.00"));
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.PAGO_REGISTRAR), eq(90), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("idFactura", 50)
+            .containsEntry("metodo", "EFECTIVO")
+            .containsEntry("estadoFactura", "PAGO_PARCIAL");
+        assertThat((BigDecimal) detalle.getValue().valores().get("saldo"))
+            .isEqualByComparingTo("350.00");
+    }
+
+    @Test
+    void unPagoQueSuperaElTotalNoDejaFilaDeAuditoria() {
+        Factura factura = factura("550.00", "100.00", EstadoFactura.PAGO_PARCIAL);
+        when(facturas.findById(50)).thenReturn(Optional.of(factura));
+        when(metodos.findByIdAndActiveTrue(1)).thenReturn(Optional.of(metodo(1, "EFECTIVO")));
+        when(pagos.sumarPagos(50)).thenReturn(new BigDecimal("450.00"));
+
+        catchThrowableOfType(() -> service.registrar(50, pedido("200.00")),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unaFacturaAnuladaNoDejaFilaDeAuditoria() {
+        Factura factura = factura("550.00", "550.00", EstadoFactura.ANULADA);
+        when(facturas.findById(50)).thenReturn(Optional.of(factura));
+
+        catchThrowableOfType(() -> service.registrar(50, pedido("200.00")),
+            ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }

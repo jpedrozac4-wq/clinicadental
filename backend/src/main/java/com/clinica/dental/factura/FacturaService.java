@@ -1,5 +1,8 @@
 package com.clinica.dental.factura;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.factura.dto.ComprobantePdf;
 import com.clinica.dental.factura.dto.FacturaRequest;
 import com.clinica.dental.factura.dto.FacturaResponse;
@@ -39,19 +42,22 @@ public class FacturaService {
     private final PacienteRepository pacientes;
     private final TratamientoRealizadoRepository realizados;
     private final FacturaPdfService pdf;
+    private final AuditoriaService auditoria;
 
     public FacturaService(FacturaRepository facturas,
                           FacturaDetalleRepository detalles,
                           EstadoFacturaRepository estados,
                           PacienteRepository pacientes,
                           TratamientoRealizadoRepository realizados,
-                          FacturaPdfService pdf) {
+                          FacturaPdfService pdf,
+                          AuditoriaService auditoria) {
         this.facturas = facturas;
         this.detalles = detalles;
         this.estados = estados;
         this.pacientes = pacientes;
         this.realizados = realizados;
         this.pdf = pdf;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -90,7 +96,21 @@ public class FacturaService {
             linea.setMonto(realizado.getCosto());
             lineas.add(linea);
         }
-        return FacturaResponse.desde(guardada, detalles.saveAll(lineas));
+        List<FacturaDetalle> guardadas = detalles.saveAll(lineas);
+        auditar(guardada, guardadas);
+        return FacturaResponse.desde(guardada, guardadas);
+    }
+
+    /** Una fila de auditoria por comprobante emitido, con el total y el saldo con el que nace. */
+    private void auditar(Factura factura, List<FacturaDetalle> lineas) {
+        auditoria.registrar(AccionAuditoria.FACTURA_EMITIR, factura.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idFactura", factura.getId())
+                .con("numero", factura.getNumero())
+                .con("idPaciente", factura.getPaciente().getId())
+                .con("total", factura.getTotal())
+                .con("saldo", factura.getSaldo())
+                .con("lineas", lineas == null ? null : lineas.size()));
     }
 
     @Transactional(readOnly = true)

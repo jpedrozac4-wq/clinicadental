@@ -1,5 +1,8 @@
 package com.clinica.dental.cita;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.cita.dto.CitaRequest;
 import com.clinica.dental.cita.dto.CitaResponse;
 import com.clinica.dental.cita.dto.ReprogramarRequest;
@@ -29,6 +32,10 @@ import java.util.List;
  * <p>La agenda arrastra el ciclo de vida de los recordatorios de S5: agendar programa el aviso de 24
  * horas, reprogramar cancela el pendiente de la cita reemplazada y programa el de la nueva, y
  * cancelar anula los pendientes para no avisar de una cita que ya no ocurrira (S6).
+ *
+ * <p>Programar, reprogramar y cancelar dejan su fila de auditoria (S19) al final del metodo, en la
+ * misma transaccion. Un rechazo por solapamiento, fecha pasada o cita atendida no audita nada, y
+ * repetir la cancelacion tampoco porque no vuelve a escribir.
  */
 @Service
 public class CitaService {
@@ -42,16 +49,18 @@ public class CitaService {
     private final TratamientoRepository tratamientos;
     private final SystemUserRepository usuarios;
     private final RecordatorioService recordatorios;
+    private final AuditoriaService auditoria;
 
     public CitaService(CitaRepository citas, EstadoCitaRepository estados, PacienteRepository pacientes,
                        TratamientoRepository tratamientos, SystemUserRepository usuarios,
-                       RecordatorioService recordatorios) {
+                       RecordatorioService recordatorios, AuditoriaService auditoria) {
         this.citas = citas;
         this.estados = estados;
         this.pacientes = pacientes;
         this.tratamientos = tratamientos;
         this.usuarios = usuarios;
         this.recordatorios = recordatorios;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -76,6 +85,13 @@ public class CitaService {
         cita.setMotivo(request.motivo() == null ? null : request.motivo().trim());
         Cita agendada = citas.save(cita);
         recordatorios.programarPara(agendada);
+        auditoria.registrar(AccionAuditoria.CITA_CREAR, agendada.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPaciente", paciente.getId())
+                .con("idTratamiento", tratamiento.getId())
+                .con("idDentista", dentista.getId())
+                .con("fechaHoraInicio", agendada.getFechaHoraInicio())
+                .con("estado", EstadoCita.PROGRAMADA));
         return CitaResponse.desde(agendada);
     }
 
@@ -114,6 +130,13 @@ public class CitaService {
         // El recordatorio de la fecha anterior ya no aplica: se anula y se regenera para la nueva.
         recordatorios.cancelarPendientes(original.getId());
         recordatorios.programarPara(reprogramada);
+        auditoria.registrar(AccionAuditoria.CITA_REPROGRAMAR, reprogramada.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idCitaOrigen", original.getId())
+                .con("idPaciente", reprogramada.getPaciente().getId())
+                .con("idDentista", dentista.getId())
+                .con("fechaHoraInicio", reprogramada.getFechaHoraInicio())
+                .con("estado", EstadoCita.REPROGRAMADA));
         return CitaResponse.desde(reprogramada);
     }
 
@@ -131,6 +154,11 @@ public class CitaService {
         cita.setEstado(estado(EstadoCita.CANCELADA));
         citas.save(cita);
         recordatorios.cancelarPendientes(cita.getId());
+        auditoria.registrar(AccionAuditoria.CITA_CANCELAR, cita.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPaciente", cita.getPaciente().getId())
+                .con("fechaHoraInicio", cita.getFechaHoraInicio())
+                .con("estado", EstadoCita.CANCELADA));
     }
 
     /** Marca la cita como atendida cuando se registra el tratamiento realizado (S8). */

@@ -1,5 +1,8 @@
 package com.clinica.dental.pago;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.factura.EstadoFactura;
 import com.clinica.dental.factura.EstadoFacturaRepository;
 import com.clinica.dental.factura.Factura;
@@ -21,6 +24,9 @@ import java.util.List;
  * <p>El saldo se recalcula en cada pago como {@code total - suma de pagos} y arrastra el estado de la
  * factura: {@code PAGO_PARCIAL} mientras quede saldo y {@code PAGADA} cuando llega a cero. La suma de
  * pagos nunca puede superar el total del comprobante, y una factura anulada no admite cobros.
+ *
+ * <p>El pago deja su fila de auditoria (S19) al final del metodo, despues de recalcular saldo y
+ * estado, dentro de la misma transaccion. Un pago rechazado por exceder el total no audita nada.
  */
 @Service
 public class PagoService {
@@ -29,13 +35,16 @@ public class PagoService {
     private final MetodoPagoRepository metodos;
     private final FacturaRepository facturas;
     private final EstadoFacturaRepository estados;
+    private final AuditoriaService auditoria;
 
     public PagoService(PagoRepository pagos, MetodoPagoRepository metodos,
-                       FacturaRepository facturas, EstadoFacturaRepository estados) {
+                       FacturaRepository facturas, EstadoFacturaRepository estados,
+                       AuditoriaService auditoria) {
         this.pagos = pagos;
         this.metodos = metodos;
         this.facturas = facturas;
         this.estados = estados;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -70,6 +79,14 @@ public class PagoService {
         Pago guardado = pagos.save(pago);
 
         actualizarSaldoYEstado(factura, acumulado);
+        auditoria.registrar(AccionAuditoria.PAGO_REGISTRAR, guardado.getId(),
+            DetalleAuditoria.nuevo()
+                .con("idPago", guardado.getId())
+                .con("idFactura", factura.getId())
+                .con("monto", guardado.getMonto())
+                .con("metodo", metodo.getCode())
+                .con("estadoFactura", factura.getEstado().getCode())
+                .con("saldo", factura.getSaldo()));
         return PagoResponse.desde(guardado);
     }
 

@@ -1,5 +1,8 @@
 package com.clinica.dental.paciente;
 
+import com.clinica.dental.auditoria.AccionAuditoria;
+import com.clinica.dental.auditoria.AuditoriaService;
+import com.clinica.dental.auditoria.DetalleAuditoria;
 import com.clinica.dental.paciente.dto.PacienteRequest;
 import com.clinica.dental.paciente.dto.PacienteResponse;
 import com.clinica.dental.shared.ClinicaBusinessException;
@@ -18,9 +21,11 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -34,6 +39,9 @@ class PacienteServiceTest {
 
     @Mock
     private PacienteRepository repository;
+
+    @Mock
+    private AuditoriaService auditoria;
 
     @InjectMocks
     private PacienteService service;
@@ -205,5 +213,88 @@ class PacienteServiceTest {
         assertThat(service.listar("  Mendoza ")).hasSize(1);
 
         verify(repository).buscar("%mendoza%");
+    }
+
+    // -------------------------------------------------- auditoria de operaciones (S19)
+
+    @Test
+    void auditaElAltaConSuCodigoYLaFichaCreada() {
+        when(repository.save(any(Paciente.class))).thenAnswer(inv -> {
+            Paciente p = inv.getArgument(0);
+            p.setId(7);
+            return p;
+        });
+
+        service.crear(fichaValida());
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.PACIENTE_CREAR), eq(7), detalle.capture());
+        assertThat(detalle.getValue().valores())
+            .containsEntry("idPaciente", 7)
+            .containsEntry("email", "ana.mendoza@example.com");
+    }
+
+    @Test
+    void auditaLaEdicionConElCodigoDeActualizacion() {
+        when(repository.findByIdAndActiveTrue(5)).thenReturn(Optional.of(persistido(5)));
+        when(repository.save(any(Paciente.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.actualizar(5, fichaValida());
+
+        verify(auditoria).registrar(eq(AccionAuditoria.PACIENTE_ACTUALIZAR), eq(5),
+            any(DetalleAuditoria.class));
+    }
+
+    @Test
+    void auditaLaBajaConElEstadoResultante() {
+        when(repository.findById(5)).thenReturn(Optional.of(persistido(5)));
+        when(repository.save(any(Paciente.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.darDeBaja(5);
+
+        ArgumentCaptor<DetalleAuditoria> detalle = ArgumentCaptor.forClass(DetalleAuditoria.class);
+        verify(auditoria).registrar(eq(AccionAuditoria.PACIENTE_BAJA), eq(5), detalle.capture());
+        assertThat(detalle.getValue().valores()).containsEntry("activo", Boolean.FALSE);
+    }
+
+    @Test
+    void unaBajaRepetidaNoEscribeUnaSegundaFilaDeAuditoria() {
+        Paciente yaInactivo = persistido(5);
+        yaInactivo.setActive(false);
+        when(repository.findById(5)).thenReturn(Optional.of(yaInactivo));
+
+        service.darDeBaja(5);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unAltaRechazadaNoDejaFilaDeAuditoria() {
+        PacienteRequest invalida = new PacienteRequest("Ana", "Mendoza", LocalDate.of(1990, 3, 14),
+            "777-12345", "Av. Busch 1450", "sin-arroba");
+
+        ClinicaBusinessException ex = catchThrowableOfType(
+            () -> service.crear(invalida), ClinicaBusinessException.class);
+
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unaEdicionInexistenteNoDejaFilaDeAuditoria() {
+        when(repository.findByIdAndActiveTrue(99)).thenReturn(Optional.empty());
+
+        catchThrowableOfType(() -> service.actualizar(99, fichaValida()), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void unaBajaInexistenteNoDejaFilaDeAuditoria() {
+        when(repository.findById(99)).thenReturn(Optional.empty());
+
+        catchThrowableOfType(() -> service.darDeBaja(99), ClinicaBusinessException.class);
+
+        verifyNoInteractions(auditoria);
     }
 }
