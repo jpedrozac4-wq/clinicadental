@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Locale;
 
 /**
@@ -52,6 +53,18 @@ public class AuditoriaService {
 
     /** Zona con la que las fechas {@code YYYY-MM-DD} se traducen a los instantes de la base. */
     private static final ZoneId ZONA = ZoneId.systemDefault();
+
+    /**
+     * Cotas con las que se sustituye un filtro de fecha ausente.
+     *
+     * <p>No son {@code null} a proposito: PostgreSQL no puede inferir el tipo de un parametro
+     * {@code OffsetDateTime} nulo en {@code ? IS NULL} y responde {@code 42P18}. Un rango abierto se
+     * representa con extremos que ninguna fila real alcanza, en UTC para no depender de la zona.
+     */
+    private static final OffsetDateTime SIN_LIMITE_INFERIOR =
+        OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+    private static final OffsetDateTime SIN_LIMITE_SUPERIOR =
+        OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC);
 
     /** Longitudes reales de las columnas que la bitacora recorta en lugar de rechazar. */
     private static final int LONGITUD_TABLA = 150;
@@ -171,9 +184,12 @@ public class AuditoriaService {
     @Transactional(readOnly = true)
     public AuditoriaPaginaResponse consultar(LocalDate desde, LocalDate hasta, String accion,
                                              String usuario, Integer pagina, Integer tamanio) {
-        OffsetDateTime inicio = desde == null ? null : inicioDelDia(desde);
-        OffsetDateTime fin = hasta == null ? null : inicioDelDia(hasta.plusDays(1));
-        if (inicio != null && fin != null && !inicio.isBefore(fin)) {
+        // Los filtros de fecha nunca viajan nulos: PostgreSQL no puede inferir el tipo de un
+        // OffsetDateTime nulo en "? IS NULL" (42P18) y la consulta entera falla. Con centinelas
+        // la comparacion directa le da el tipo al parametro.
+        OffsetDateTime inicio = desde == null ? SIN_LIMITE_INFERIOR : inicioDelDia(desde);
+        OffsetDateTime fin = hasta == null ? SIN_LIMITE_SUPERIOR : inicioDelDia(hasta.plusDays(1));
+        if (desde != null && hasta != null && hasta.isBefore(desde)) {
             throw new ClinicaBusinessException(HttpStatus.BAD_REQUEST,
                 "El rango de fechas es invalido: desde no puede ser posterior a hasta");
         }

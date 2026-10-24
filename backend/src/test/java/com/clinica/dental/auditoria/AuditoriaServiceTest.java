@@ -210,13 +210,22 @@ class AuditoriaServiceTest {
     }
 
     @Test
-    void sinFiltrosNoAcotaFechasNiUsuario() {
-        when(bitacora.buscar(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+    void sinFiltrosUsaUnRangoAbiertoYNoAcotaUsuario() {
+        when(bitacora.buscar(any(), any(), isNull(), isNull(), any(Pageable.class)))
             .thenReturn(Page.empty());
 
         service.consultar(null, null, "   ", "   ", null, null);
 
-        verify(bitacora).buscar(isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+        ArgumentCaptor<OffsetDateTime> desde = ArgumentCaptor.forClass(OffsetDateTime.class);
+        ArgumentCaptor<OffsetDateTime> hasta = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(bitacora).buscar(desde.capture(), hasta.capture(), isNull(), isNull(), any(Pageable.class));
+
+        // Un OffsetDateTime nulo dentro de "? IS NULL" no se puede tipar en PostgreSQL (42P18),
+        // asi que el rango abierto viaja con centinelas y nunca con null.
+        assertThat(desde.getValue()).isNotNull();
+        assertThat(desde.getValue().getYear()).isEqualTo(1970);
+        assertThat(hasta.getValue()).isNotNull();
+        assertThat(hasta.getValue().getYear()).isEqualTo(9999);
     }
 
     @Test

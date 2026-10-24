@@ -17,8 +17,12 @@ import java.time.OffsetDateTime;
  * que la consulta y el contrato HTTP compartan forma: el {@code jsonb} de {@code data} viaja como el
  * texto que la base devuelve.
  *
- * <p>Los cuatro filtros son opcionales y se declaran como {@code :parametro IS NULL} para que la
- * misma consulta sirva con cualquier combinacion, siguiendo la convencion del resto del modulo.
+ * <p>Los filtros de texto son opcionales y se declaran como {@code :parametro IS NULL}, siguiendo la
+ * convencion del resto del modulo: PostgreSQL resuelve un parametro de texto sin tipo como
+ * {@code text}. Los filtros de fecha NO usan ese patron: un {@code OffsetDateTime} nulo dentro de
+ * {@code ? IS NULL} hace que PostgreSQL no pueda inferir el tipo y la consulta falla con
+ * {@code 42P18 could not determine data type of parameter}. El servicio los acota con centinelas,
+ * asi siempre llegan con valor y la comparacion directa le da el tipo al parametro.
  */
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
@@ -35,8 +39,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
           FROM AuditLog a
           JOIN a.accion catalogo
           LEFT JOIN a.usuario u
-         WHERE (:desde IS NULL OR a.creadoEn >= :desde)
-           AND (:hasta IS NULL OR a.creadoEn < :hasta)
+         WHERE a.creadoEn >= :desde
+           AND a.creadoEn < :hasta
            AND (:accion IS NULL OR catalogo.code = :accion)
            AND (:usuario IS NULL OR u.username = :usuario)
          ORDER BY a.creadoEn DESC, a.id DESC
@@ -46,8 +50,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
           FROM AuditLog a
           JOIN a.accion catalogo
           LEFT JOIN a.usuario u
-         WHERE (:desde IS NULL OR a.creadoEn >= :desde)
-           AND (:hasta IS NULL OR a.creadoEn < :hasta)
+         WHERE a.creadoEn >= :desde
+           AND a.creadoEn < :hasta
            AND (:accion IS NULL OR catalogo.code = :accion)
            AND (:usuario IS NULL OR u.username = :usuario)
         """)

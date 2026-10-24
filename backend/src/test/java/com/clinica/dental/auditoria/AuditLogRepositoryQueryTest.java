@@ -43,12 +43,25 @@ class AuditLogRepositoryQueryTest {
     }
 
     @Test
-    void losCuatroFiltrosSiguenSiendoOpcionales() {
+    void losFiltrosDeTextoSiguenSiendoOpcionales() {
         assertThat(anotacion().value())
-            .contains("(:desde IS NULL OR a.creadoEn >= :desde)")
-            .contains("(:hasta IS NULL OR a.creadoEn < :hasta)")
             .contains("(:accion IS NULL OR catalogo.code = :accion)")
             .contains("(:usuario IS NULL OR u.username = :usuario)");
+    }
+
+    @Test
+    void lasFechasNuncaViajanNulas() {
+        // PostgreSQL no puede inferir el tipo de un OffsetDateTime nulo dentro de "? IS NULL"
+        // (42P18 could not determine data type of parameter), asi que la consulta compara
+        // siempre contra un rango con valor. El servicio lo acota con centinelas.
+        assertThat(anotacion().value())
+            .doesNotContain("(:desde IS NULL")
+            .doesNotContain("(:hasta IS NULL")
+            .contains("a.creadoEn >= :desde")
+            .contains("a.creadoEn < :hasta");
+        assertThat(anotacion().countQuery())
+            .doesNotContain("(:desde IS NULL")
+            .doesNotContain("(:hasta IS NULL");
     }
 
     @Test
